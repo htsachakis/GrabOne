@@ -61,19 +61,31 @@ all from that one variable.
 
 The NSIS configuration in
 [`build/windows/installer/project.nsi`](../build/windows/installer/project.nsi)
-installs **for the current user**:
+asks who to install for on its own wizard page. The default is **all users**,
+landing in `C:\Program Files\GrabOne`; the other choice is the current user
+only, in `%LOCALAPPDATA%\Programs\GrabOne`. Either way there is a Start-menu
+entry, a desktop shortcut and an uninstaller.
+
+The manifest stays unelevated whichever scope is chosen:
 
 ```nsis
 !define REQUEST_EXECUTION_LEVEL "user"
-!define WAILS_INSTALL_SCOPE "user"
 ```
 
-This matters for updating: a per-user install needs no administrator prompt, so
-the running application can start the installer itself. A machine-wide install
-would raise a UAC dialog that the application cannot answer.
+That is what lets the application apply its own updates. The updater starts the
+installer with `CreateProcess`, which cannot start a binary whose manifest asks
+for elevation at all — it fails with `ERROR_ELEVATION_REQUIRED` before any
+prompt appears. So the installer starts unelevated and re-launches itself
+through `ShellExecute("runas")` once the all-users scope is confirmed. Declining
+that prompt returns to the page rather than failing the install.
 
-GrabOne lands in `%LOCALAPPDATA%\Programs\GrabOne`, with a Start-menu entry and
-an uninstaller.
+Because the scope is only known at run time, the installer cannot use the
+compile-time `WAILS_INSTALL_SCOPE` define or the `wails.setShellContext` and
+`wails.writeUninstaller` macros. It sets `SetShellVarContext` itself and writes
+its uninstall entries to `SHCTX`, so they land in `HKLM` or `HKCU` to match.
+Re-running the installer reads the existing `InstallLocation` and pre-selects
+that scope and folder, so an update replaces the current install instead of
+adding a second one beside it.
 
 ## How the in-app update works
 

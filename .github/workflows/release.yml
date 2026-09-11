@@ -151,9 +151,10 @@ jobs:
           body: |
             ## Installing
 
-            Download **${{ steps.artifacts.outputs.installer }}** and run it. GrabOne installs
-            for the current user, so no administrator prompt appears. The portable
-            build needs no installation at all.
+            Download **${{ steps.artifacts.outputs.installer }}** and run it. The wizard asks
+            who to install for: everyone on the computer (`C:\Program Files\GrabOne`,
+            administrator prompt) or your account only (`%LOCALAPPDATA%\Programs\GrabOne`,
+            no prompt). The portable build needs no installation at all.
 
             GrabOne drives yt-dlp and FFmpeg rather than bundling them, so install
             those separately and keep them updated on your own schedule:

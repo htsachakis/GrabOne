@@ -55,9 +55,10 @@ and gains new sites whenever yt-dlp is updated.
 ## Installing
 
 Download the installer from the [latest release](https://github.com/htsachakis/GrabOne/releases/latest)
-and run it. GrabOne installs for the current user, so there is no administrator
-prompt, and a portable build is published alongside it for use without
-installing.
+and run it. The wizard asks who to install for: for everyone on the computer, in
+`C:\Program Files\GrabOne`, which needs an administrator prompt, or for your
+account only, in `%LOCALAPPDATA%\Programs\GrabOne`, which does not. A portable
+build is published alongside the installer for use without installing at all.
 
 The builds are not code signed, so Windows may warn about an unrecognised
 publisher. Every release lists the SHA-256 of its files in checksums.txt, and the
