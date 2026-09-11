@@ -1,0 +1,103 @@
+{
+  "_type": "multi_video",
+  "id": "C5Y5V5YtJ5r",
+  "title": "Post by @grabone_example",
+  "description": "Three things from the weekend",
+  "uploader": "grabone_example",
+  "uploader_id": "51234567890",
+  "channel": "grabone_example",
+  "timestamp": 1712345678,
+  "upload_date": "20240405",
+  "like_count": 1843,
+  "comment_count": 51,
+  "webpage_url": "https://www.instagram.com/p/C5Y5V5YtJ5r/",
+  "original_url": "https://www.instagram.com/p/C5Y5V5YtJ5r/",
+  "extractor": "Instagram",
+  "extractor_key": "Instagram",
+  "thumbnail": "https://scontent.cdninstagram.com/v/t51/thumb_cover.jpg",
+  "entries": [
+    {
+      "_type": "video",
+      "id": "C5Y5V5YtJ5r_0",
+      "title": "Post by @grabone_example (1)",
+      "duration": 24.2,
+      "thumbnail": "https://scontent.cdninstagram.com/v/t51/item0.jpg",
+      "webpage_url": "https://www.instagram.com/p/C5Y5V5YtJ5r/",
+      "extractor": "Instagram",
+      "extractor_key": "Instagram",
+      "formats": [
+        {
+          "format_id": "dash-hd",
+          "url": "https://scontent.cdninstagram.com/v/t50/item0_hd.mp4",
+          "ext": "mp4",
+          "width": 1080,
+          "height": 1920,
+          "fps": 30,
+          "vcodec": "avc1.64001f",
+          "acodec": "mp4a.40.2",
+          "tbr": 2870.5,
+          "filesize": 8694213,
+          "protocol": "https",
+          "format_note": "HD"
+        },
+        {
+          "format_id": "dash-sd",
+          "url": "https://scontent.cdninstagram.com/v/t50/item0_sd.mp4",
+          "ext": "mp4",
+          "width": 640,
+          "height": 1138,
+          "fps": 30,
+          "vcodec": "avc1.4d401e",
+          "acodec": "mp4a.40.2",
+          "tbr": 1102.0,
+          "filesize_approx": 3340114,
+          "protocol": "https"
+        }
+      ]
+    },
+    {
+      "_type": "video",
+      "id": "C5Y5V5YtJ5r_1",
+      "title": "Post by @grabone_example (2)",
+      "duration": 11.5,
+      "thumbnail": "https://scontent.cdninstagram.com/v/t51/item1.jpg",
+      "webpage_url": "https://www.instagram.com/p/C5Y5V5YtJ5r/",
+      "extractor": "Instagram",
+      "extractor_key": "Instagram",
+      "formats": [
+        {
+          "format_id": "dash-hd",
+          "url": "https://scontent.cdninstagram.com/v/t50/item1_hd.mp4",
+          "ext": "mp4",
+          "width": 1080,
+          "height": 1080,
+          "fps": 30,
+          "vcodec": "avc1.64001f",
+          "acodec": "mp4a.40.2",
+          "tbr": 2410.75,
+          "filesize": 3468811,
+          "protocol": "https"
+        }
+      ]
+    },
+    {
+      "_type": "video",
+      "id": "C5Y5V5YtJ5r_2",
+      "title": "Post by @grabone_example (3)",
+      "thumbnail": "https://scontent.cdninstagram.com/v/t51/item2.jpg",
+      "webpage_url": "https://www.instagram.com/p/C5Y5V5YtJ5r/",
+      "extractor": "Instagram",
+      "extractor_key": "Instagram",
+      "formats": [
+        {
+          "format_id": "0",
+          "url": "https://scontent.cdninstagram.com/v/t51/item2_full.jpg",
+          "ext": "jpg",
+          "width": 1440,
+          "height": 1440,
+          "protocol": "https"
+        }
+      ]
+    }
+  ]
+}

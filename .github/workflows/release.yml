@@ -1,0 +1,158 @@
+name: Release
+
+# Publishes a Windows build when a version tag is pushed:
+#
+#   git tag v1.1.0 && git push origin v1.1.0
+#
+# The release carries the NSIS installer, the portable executable and a
+# checksums.txt. The application's updater refuses to install anything that is
+# not listed in that checksum file, so it is not optional.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build, without the leading v (for a test run)"
+        required: true
+        default: "0.0.0"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Work out the version
+        id: version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -like "refs/tags/*") {
+            $version = $env:GITHUB_REF -replace "^refs/tags/v?", ""
+          } else {
+            $version = "${{ github.event.inputs.version }}"
+          }
+          Write-Host "Building version $version"
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Verify the checks still pass
+        run: |
+          go vet ./...
+          go test ./...
+
+      - name: Install the Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.14.0
+
+      - name: Stamp the version into the Windows metadata
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # wails.json feeds the version resource of the executable and the
+          # installer, so the file properties match the release rather than
+          # whatever was last committed.
+          $config = Get-Content wails.json -Raw | ConvertFrom-Json
+          $config.info.productVersion = $env:VERSION
+          $config | ConvertTo-Json -Depth 10 | Set-Content wails.json -Encoding utf8
+          Write-Host "productVersion set to $($config.info.productVersion)"
+
+      - name: Build the application and installer
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # The version is stamped into the binary so the running application
+          # knows which release it is, which is what the update check compares.
+          wails build -clean -platform windows/amd64 -nsis `
+            -ldflags "-X grabone/internal/appinfo.Version=$env:VERSION"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Name the artifacts
+        id: artifacts
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $bin = "build/bin"
+          $installer = Get-ChildItem "$bin/*installer*.exe" | Select-Object -First 1
+          if (-not $installer) { throw "no installer was produced" }
+
+          $installerName = "GrabOne-$env:VERSION-installer.exe"
+          $portableName  = "GrabOne-$env:VERSION-portable.exe"
+
+          Move-Item $installer.FullName "$bin/$installerName" -Force
+          Copy-Item "$bin/GrabOne.exe" "$bin/$portableName" -Force
+
+          "installer=$installerName" >> $env:GITHUB_OUTPUT
+          "portable=$portableName"   >> $env:GITHUB_OUTPUT
+
+      - name: Write the checksums
+        shell: pwsh
+        run: |
+          Push-Location build/bin
+          $lines = Get-ChildItem *.exe | ForEach-Object {
+            $hash = (Get-FileHash $_.Name -Algorithm SHA256).Hash.ToLower()
+            "$hash  $($_.Name)"
+          }
+          $lines | Set-Content checksums.txt -Encoding ascii
+          Get-Content checksums.txt
+          Pop-Location
+
+      - name: Upload the build for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: GrabOne-${{ steps.version.outputs.version }}
+          path: |
+            build/bin/*.exe
+            build/bin/checksums.txt
+          retention-days: 14
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: GrabOne ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          body: |
+            ## Installing
+
+            Download **${{ steps.artifacts.outputs.installer }}** and run it. GrabOne installs
+            for the current user, so no administrator prompt appears. The portable
+            build needs no installation at all.
+
+            GrabOne drives yt-dlp and FFmpeg rather than bundling them, so install
+            those separately and keep them updated on your own schedule:
+
+            ```powershell
+            winget install yt-dlp.yt-dlp
+            winget install Gyan.FFmpeg
+            ```
+
+            The application finds them on your PATH, in its own folder, or wherever
+            you point it in Settings. If one is missing it shows how to install it.
+
+            Windows may warn about an unrecognised publisher: these builds are not
+            code signed. `checksums.txt` lists the SHA-256 of every file here, and
+            the in-app updater verifies it before running anything.
+          files: |
+            build/bin/${{ steps.artifacts.outputs.installer }}
+            build/bin/${{ steps.artifacts.outputs.portable }}
+            build/bin/checksums.txt
