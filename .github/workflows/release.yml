@@ -113,8 +113,12 @@ jobs:
           $installerName = "GrabOne-$env:VERSION-installer.exe"
           $portableName  = "GrabOne-$env:VERSION-portable.exe"
 
+          # Move rather than copy: the checksums step hashes every exe left in
+          # this folder, so a leftover GrabOne.exe would add a line to
+          # checksums.txt for a name the release does not carry, and anyone
+          # verifying the download by hand would go looking for a missing file.
           Move-Item $installer.FullName "$bin/$installerName" -Force
-          Copy-Item "$bin/GrabOne.exe" "$bin/$portableName" -Force
+          Move-Item "$bin/GrabOne.exe" "$bin/$portableName" -Force
 
           "installer=$installerName" >> $env:GITHUB_OUTPUT
           "portable=$portableName"   >> $env:GITHUB_OUTPUT
