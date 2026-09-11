@@ -526,5 +526,12 @@ Section "uninstall"
     DeleteRegKey SHCTX "${UNINST_KEY}"
 
     Delete "$INSTDIR\uninstall.exe"
+
+    # Step out of the folder before removing it. The elevated copy of the
+    # uninstaller is started with _?=$INSTDIR, which runs it in place and leaves
+    # $INSTDIR as its working directory, and Windows will not delete a directory
+    # that a running process is sitting in. Without this the files go but an
+    # empty GrabOne folder stays behind, which reads as a failed uninstall.
+    SetOutPath $TEMP
     RMDir /r $INSTDIR
 SectionEnd
