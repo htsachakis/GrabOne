@@ -78,6 +78,8 @@ Var PreviousInstallDir     # Location of the install we are replacing, if any
 Var PreviousAllUsers       # Scope of that install, "" when there is none
 Var ModeRadioAllUsers
 Var ModeRadioCurrentUser
+Var CloseAttempts          # How often we have asked Windows to end the process
+Var GraceWaited            # "1" once we have waited out a self-update handover
 
 !define MUI_ICON "..\icon.ico"
 !define MUI_UNICON "..\icon.ico"
@@ -136,6 +138,62 @@ FunctionEnd
 !macroend
 !insertmacro GRABONE_SHELL_CONTEXT ""
 !insertmacro GRABONE_SHELL_CONTEXT "un."
+
+# Windows locks a running image against writing, so replacing or deleting
+# GrabOne.exe while it is open fails. Left alone NSIS reports that as a bare
+# "error opening file for writing", which says nothing about the real cause, so
+# check for it up front and offer a way out.
+!macro GRABONE_CLOSE_RUNNING UN
+Function ${UN}CloseRunningApplication
+    StrCpy $CloseAttempts 0
+    StrCpy $GraceWaited "0"
+
+    check:
+    IfFileExists "$INSTDIR\${PRODUCT_EXECUTABLE}" 0 done
+
+    # Opening the image for append succeeds only when nothing is running it.
+    ClearErrors
+    FileOpen $0 "$INSTDIR\${PRODUCT_EXECUTABLE}" a
+    ${IfNot} ${Errors}
+        FileClose $0
+        Goto done
+    ${EndIf}
+
+    # When GrabOne updates itself it starts this installer and only then closes,
+    # so give the handover a moment before troubling the user about it.
+    ${If} $GraceWaited == "0"
+        StrCpy $GraceWaited "1"
+        Sleep 1500
+        Goto check
+    ${EndIf}
+
+    # A silent run answers IDIGNORE below, so stop it looping on a process that
+    # refuses to end rather than asking again forever.
+    ${If} ${Silent}
+    ${AndIf} $CloseAttempts >= 2
+        SetErrorLevel 1
+        Abort
+    ${EndIf}
+
+    MessageBox MB_ABORTRETRYIGNORE|MB_ICONEXCLAMATION|MB_DEFBUTTON2 \
+        "${INFO_PRODUCTNAME} is still running, so its files cannot be replaced.$\r$\n$\r$\nAbort - stop and change nothing.$\r$\nRetry - close ${INFO_PRODUCTNAME} yourself first, then choose this.$\r$\nIgnore - force ${INFO_PRODUCTNAME} closed now, losing anything in progress." \
+        /SD IDIGNORE IDRETRY check IDIGNORE force
+    Abort "${INFO_PRODUCTNAME} is still running."
+
+    force:
+    IntOp $CloseAttempts $CloseAttempts + 1
+    DetailPrint "Closing ${INFO_PRODUCTNAME}"
+    nsExec::ExecToStack 'taskkill /F /IM "${PRODUCT_EXECUTABLE}"'
+    Pop $0
+    Pop $1
+    Sleep 2000
+    Goto check
+
+    done:
+FunctionEnd
+!macroend
+!insertmacro GRABONE_CLOSE_RUNNING ""
+!insertmacro GRABONE_CLOSE_RUNNING "un."
 
 # Pushes "1" when this process may write to Program Files, "2" when an elevated
 # copy of the installer has already done the work, "0" when the user refused the
@@ -366,6 +424,7 @@ FunctionEnd
 
 Section
     Call SetShellContextForMode
+    Call CloseRunningApplication
 
     !insertmacro wails.webview2runtime
 
@@ -438,6 +497,7 @@ FunctionEnd
 
 Section "uninstall"
     Call un.SetShellContextForMode
+    Call un.CloseRunningApplication
 
     # The WebView2 data folder is always per-user, whatever the install scope is.
     SetShellVarContext current
