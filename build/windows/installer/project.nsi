@@ -215,15 +215,19 @@ Function EnsureElevated
     ${EndIf}
 
     ${GetParameters} $R0
+
+    # Windows only lets the consent dialog take the foreground if the process
+    # asking for it holds the foreground itself. Hiding this window first would
+    # forfeit that, leaving UAC blinking in the taskbar behind everything, which
+    # reads as an installer that did nothing.
     ${IfNot} ${Silent}
-        HideWindow
+        BringToFront
     ${EndIf}
 
     ClearErrors
     ExecShellWait "runas" "$EXEPATH" "/ALLUSERS $R0"
     ${If} ${Errors}
         ${IfNot} ${Silent}
-            ShowWindow $HWNDPARENT 5
             BringToFront
         ${EndIf}
         Push "0"
@@ -488,11 +492,11 @@ Function un.onInit
                 Abort
             ${EndIf}
 
-            HideWindow
+            # Keep the foreground so the consent dialog can take it, as above.
+            BringToFront
             ClearErrors
             ExecShellWait "runas" "$EXEPATH" '_?=$INSTDIR'
             ${If} ${Errors}
-                ShowWindow $HWNDPARENT 5
                 BringToFront
                 MessageBox MB_OK|MB_ICONEXCLAMATION "Removing ${INFO_PRODUCTNAME} needs administrator permission."
             ${EndIf}
