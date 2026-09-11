@@ -19,6 +19,7 @@ import (
 	"grabone/internal/logging"
 	"grabone/internal/media"
 	"grabone/internal/system"
+	"grabone/internal/updater"
 	"grabone/internal/ytdlp"
 )
 
@@ -85,6 +86,7 @@ func (a *App) startup(ctx context.Context) {
 
 	a.refreshDependencies(ctx)
 	a.ensureOutputDirectory(settings.OutputDirectory)
+	updater.ClearDownloads(updateDirectory())
 	a.startUpdateCheck(ctx)
 }
 

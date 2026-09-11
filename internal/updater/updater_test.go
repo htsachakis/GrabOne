@@ -182,3 +182,28 @@ func TestCleanDownloadsKeepsTheCurrentInstaller(t *testing.T) {
 		t.Error("an installer from an earlier update should be removed")
 	}
 }
+
+func TestClearDownloadsRemovesEveryInstaller(t *testing.T) {
+	directory := t.TempDir()
+	applied := filepath.Join(directory, "GrabOne-1.4.0-installer.exe")
+	older := filepath.Join(directory, "GrabOne-1.3.0-installer.exe")
+
+	for _, path := range []string{applied, older} {
+		if err := os.WriteFile(path, []byte("x"), 0o600); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+	}
+
+	ClearDownloads(directory)
+
+	for _, path := range []string{applied, older} {
+		if _, err := os.Stat(path); err == nil {
+			t.Errorf("%s outlived an update that has already been applied", filepath.Base(path))
+		}
+	}
+
+	// The directory itself is where the next download lands.
+	if _, err := os.Stat(directory); err != nil {
+		t.Error("the updates directory should survive the cleanup")
+	}
+}

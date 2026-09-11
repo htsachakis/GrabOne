@@ -43,15 +43,31 @@ func Install(installerPath string) error {
 	return cmd.Process.Release()
 }
 
+// ClearDownloads removes every installer in the directory.
+//
+// A downloaded update is remembered only for as long as the application runs,
+// so an installer still here at startup belongs to an update that was already
+// applied or abandoned. Nothing can reach it again, and the one that carried
+// out the last update cannot delete itself while it is running.
+func ClearDownloads(directory string) {
+	CleanDownloads(directory, "")
+}
+
 // CleanDownloads removes installers left behind by earlier updates, keeping the
-// one just downloaded.
+// one just downloaded. An empty keep removes all of them.
 func CleanDownloads(directory, keep string) {
 	entries, err := os.ReadDir(directory)
 	if err != nil {
 		return
 	}
 
-	keepName := filepath.Base(keep)
+	// Not filepath.Base(keep): that turns "" into ".", which reads as though
+	// some file might be spared when the caller asked for none to be.
+	keepName := ""
+	if keep != "" {
+		keepName = filepath.Base(keep)
+	}
+
 	for _, entry := range entries {
 		if entry.IsDir() || entry.Name() == keepName {
 			continue
