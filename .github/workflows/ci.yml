@@ -1,9 +1,11 @@
 name: CI
 
 # Runs the same checks that are expected to pass before a release is tagged.
+#
+# Building is deliberately left to the release workflow, which runs only when a
+# version tag is pushed. Pushing to main triggers nothing, so a tag is what
+# produces a build.
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 

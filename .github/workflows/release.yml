@@ -59,6 +59,23 @@ jobs:
       - name: Install the Wails CLI
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.14.0
 
+      - name: Make NSIS available
+        shell: pwsh
+        run: |
+          # Wails only warns when makensis is missing and still exits 0, so the
+          # build would quietly produce no installer. Fail here instead, where
+          # the reason is obvious.
+          $nsis = "C:\Program Files (x86)\NSIS"
+          if (-not (Test-Path "$nsis\makensis.exe")) {
+            Write-Host "NSIS not present, installing it"
+            choco install nsis --yes --no-progress
+          }
+          if (-not (Test-Path "$nsis\makensis.exe")) {
+            throw "NSIS is still not available at $nsis"
+          }
+          & "$nsis\makensis.exe" /VERSION
+          $nsis | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
       - name: Stamp the version into the Windows metadata
         shell: pwsh
         env:

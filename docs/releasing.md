@@ -11,14 +11,21 @@ git tag v1.1.0
 git push origin v1.1.0
 ```
 
-The workflow then:
+Nothing is built when you push to `main`. A tag is what produces a build, and
+the workflow then:
 
 1. runs `go vet` and the test suite, so a release cannot be cut from a red tree;
-2. builds with the tag stamped into the binary:
+2. makes sure NSIS is on the runner, installing it when the image does not
+   carry it — Wails only warns when `makensis` is missing and still exits 0,
+   which would otherwise produce a release with no installer in it;
+3. builds with the tag stamped into the binary:
    `-ldflags "-X grabone/internal/appinfo.Version=1.1.0"`;
-3. produces the NSIS installer and the portable executable;
-4. writes `checksums.txt` with the SHA-256 of each file;
-5. publishes a GitHub release with all three attached.
+4. produces the NSIS installer and the portable executable;
+5. writes `checksums.txt` with the SHA-256 of each file;
+6. publishes a GitHub release with all three attached.
+
+`ci.yml` runs the same checks on pull requests, and can be started by hand from
+the Actions tab.
 
 A pre-release is marked automatically: a tag containing a hyphen, such as
 `v1.2.0-rc1`, is published as a pre-release and the updater treats it as older
@@ -104,6 +111,23 @@ secrets and uncomment the signing lines in `project.nsi`:
 ```
 
 and sign `GrabOne.exe` in the workflow before the installer is built.
+
+## Re-running a tag
+
+A tag that failed before publishing can simply be moved:
+
+```powershell
+git tag -d v1.1.0
+git push origin :refs/tags/v1.1.0
+git tag -a v1.1.0 -m "GrabOne v1.1.0"
+git push origin v1.1.0
+```
+
+The workflow that runs is the one committed at the tagged commit, so a fix to
+the workflow itself has to be committed before the tag is recreated.
+
+Once a release is published, prefer a new version over moving the tag: the
+updater compares tags, and people may already have downloaded the old one.
 
 ## Local checks before tagging
 
