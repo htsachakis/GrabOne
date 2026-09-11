@@ -82,10 +82,17 @@ that prompt returns to the page rather than failing the install.
 Windows locks a running image against writing, so installing or uninstalling
 over an open GrabOne would fail on `GrabOne.exe` with nothing but NSIS's own
 "error opening file for writing". The installer tests for that first, by opening
-the executable for append, and offers Abort, Retry after closing it yourself, or
-Ignore to end the process with `taskkill`. A self-update gets a short grace wait
-before the question is asked at all, since the application starts the installer
-and only then closes. A silent run takes the Ignore path.
+the executable for append, before anything is written.
+
+Installing asks what to do about it, since the user may want to save work first:
+Abort, Retry after closing GrabOne themselves, or Ignore to end the process with
+`taskkill`. A silent run takes the Ignore path. Uninstalling closes it outright
+without asking, because the application is being removed either way. Either path
+gives up after two failed attempts rather than looping on a process that will
+not end.
+
+A self-update gets a short grace wait before any of this, since the application
+starts the installer and only then closes.
 
 Because the scope is only known at run time, the installer cannot use the
 compile-time `WAILS_INSTALL_SCOPE` define or the `wails.setShellContext` and

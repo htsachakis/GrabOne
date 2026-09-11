@@ -143,7 +143,7 @@ FunctionEnd
 # GrabOne.exe while it is open fails. Left alone NSIS reports that as a bare
 # "error opening file for writing", which says nothing about the real cause, so
 # check for it up front and offer a way out.
-!macro GRABONE_CLOSE_RUNNING UN
+!macro GRABONE_CLOSE_RUNNING UN ASK
 Function ${UN}CloseRunningApplication
     StrCpy $CloseAttempts 0
     StrCpy $GraceWaited "0"
@@ -167,18 +167,26 @@ Function ${UN}CloseRunningApplication
         Goto check
     ${EndIf}
 
-    # A silent run answers IDIGNORE below, so stop it looping on a process that
-    # refuses to end rather than asking again forever.
-    ${If} ${Silent}
-    ${AndIf} $CloseAttempts >= 2
+    # taskkill has had its chances by now, so stop rather than loop on a process
+    # that will not end.
+    ${If} $CloseAttempts >= 2
+        MessageBox MB_OK|MB_ICONSTOP \
+            "${INFO_PRODUCTNAME} could not be closed.$\r$\n$\r$\nClose it yourself, then run this again." \
+            /SD IDOK
         SetErrorLevel 1
-        Abort
+        Abort "${INFO_PRODUCTNAME} is still running."
     ${EndIf}
 
+!if "${ASK}" == "1"
     MessageBox MB_ABORTRETRYIGNORE|MB_ICONEXCLAMATION|MB_DEFBUTTON2 \
         "${INFO_PRODUCTNAME} is still running, so its files cannot be replaced.$\r$\n$\r$\nAbort - stop and change nothing.$\r$\nRetry - close ${INFO_PRODUCTNAME} yourself first, then choose this.$\r$\nIgnore - force ${INFO_PRODUCTNAME} closed now, losing anything in progress." \
         /SD IDIGNORE IDRETRY check IDIGNORE force
     Abort "${INFO_PRODUCTNAME} is still running."
+!else
+    # Uninstalling removes the application whatever the user says, so close it
+    # instead of asking a question with only one useful answer.
+    Goto force
+!endif
 
     force:
     IntOp $CloseAttempts $CloseAttempts + 1
@@ -192,8 +200,8 @@ Function ${UN}CloseRunningApplication
     done:
 FunctionEnd
 !macroend
-!insertmacro GRABONE_CLOSE_RUNNING ""
-!insertmacro GRABONE_CLOSE_RUNNING "un."
+!insertmacro GRABONE_CLOSE_RUNNING ""    "1" # Installing asks first.
+!insertmacro GRABONE_CLOSE_RUNNING "un." "0" # Uninstalling just closes it.
 
 # Pushes "1" when this process may write to Program Files, "2" when an elevated
 # copy of the installer has already done the work, "0" when the user refused the
