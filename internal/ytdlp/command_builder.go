@@ -18,10 +18,23 @@ const (
 	progressDeltaValue = "0.5"
 )
 
+// encodingArgs forces yt-dlp to write its output as UTF-8.
+//
+// Without this yt-dlp encodes what it prints using an encoding derived from the
+// locale, with errors="ignore", so any character the code page cannot represent
+// is dropped without a word. A title holding an emoji then comes back as a path
+// that does not match the file just written, and everything keyed off that path
+// fails. Note that PYTHONIOENCODING does not help: yt-dlp picks the encoding
+// itself rather than leaving it to the interpreter.
+func encodingArgs() []string {
+	return []string{"--encoding", "utf-8"}
+}
+
 // ReportingArgs returns the switches that make yt-dlp report progress in a
 // parsable form. They are kept apart from the download arguments so the command
 // preview shows what the user asked for, not the application's plumbing.
 //
+//   - --encoding keeps printed paths byte for byte what was written to disk.
 //   - --newline stops progress being rewritten on one line with carriage
 //     returns, so each update is a separate line.
 //   - --no-quiet is required because --print otherwise implies --quiet, which
@@ -30,15 +43,15 @@ const (
 //   - --print after_move reports the final path once post-processing moved the
 //     file into place.
 func ReportingArgs() []string {
-	return []string{
+	return append(encodingArgs(),
 		"--newline",
 		"--no-quiet",
 		"--progress-delta", progressDeltaValue,
 		"--progress-template", "download:" + progressMarker + "%(progress)j",
 		"--progress-template", "postprocess:" + postProcessMarker + "%(progress)j",
-		"--print", "after_move:" + destinationMarker + "%(filepath)s",
+		"--print", "after_move:"+destinationMarker+"%(filepath)s",
 		"--no-simulate",
-	}
+	)
 }
 
 // BuildDownloadArgs turns validated options into a yt-dlp argument list.

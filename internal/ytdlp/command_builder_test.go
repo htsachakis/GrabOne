@@ -512,6 +512,24 @@ func TestReportingArgsAreSeparateFromTheUserCommand(t *testing.T) {
 	}
 }
 
+// A title yt-dlp cannot encode in the locale code page loses those characters
+// from the path it prints, leaving a path that matches no file on disk.
+func TestOutputIsReadAsUTF8(t *testing.T) {
+	for name, args := range map[string][]string{
+		"reporting": ReportingArgs(),
+		"analysis":  (&Client{}).AnalyzeArgs(AnalyzeOptions{URL: "https://example.com/watch?v=1"}),
+	} {
+		encoding, ok := argValue(args, "--encoding")
+		if !ok {
+			t.Errorf("%s: no --encoding, so a path with an emoji comes back missing it", name)
+			continue
+		}
+		if encoding != "utf-8" {
+			t.Errorf("%s: --encoding = %q, want utf-8", name, encoding)
+		}
+	}
+}
+
 func TestBuildCommandPreviewQuoting(t *testing.T) {
 	options := baseOptions()
 	options.VideoFormatID = "137"

@@ -51,13 +51,13 @@ func ValidateURL(raw string) (string, *Error) {
 // AnalyzeArgs renders the arguments used for analysis. Analysis never downloads
 // media: it only asks the extractor what is available.
 func (c *Client) AnalyzeArgs(opts AnalyzeOptions) []string {
-	args := []string{
+	args := append(encodingArgs(),
 		"--dump-single-json",
 		// Listing entries without resolving each one keeps analysis fast and
 		// makes sure a playlist link cannot trigger a full extraction.
 		"--flat-playlist",
 		"--no-progress",
-	}
+	)
 	if opts.CollectionMode == CollectionModeAll || opts.CollectionMode == CollectionModeSelected {
 		args = append(args, "--yes-playlist")
 	} else {
