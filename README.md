@@ -60,9 +60,39 @@ and run it. The wizard asks who to install for: for everyone on the computer, in
 account only, in `%LOCALAPPDATA%\Programs\GrabOne`, which does not. A portable
 build is published alongside the installer for use without installing at all.
 
+That prompt comes after you choose, not when the installer starts, so a per-user
+install never raises one.
+
+If GrabOne is open when you install over it, the installer says so instead of
+failing on a file it cannot replace. Close it and choose Retry, or choose Ignore
+to have the installer close it for you, losing anything in progress.
+
 The builds are not code signed, so Windows may warn about an unrecognised
 publisher. Every release lists the SHA-256 of its files in checksums.txt, and the
 in-app updater verifies that before it runs anything.
+
+## Updating and uninstalling
+
+GrabOne checks GitHub for a newer release when it starts, which can be turned off
+in Settings › Updates. Nothing is downloaded or installed without you asking for
+it. A downloaded installer is checked against the release's checksums.txt before
+it is ever started, and a file that fails that check is deleted rather than kept.
+
+An update keeps the scope of the install it replaces: a per-machine install stays
+in `C:\Program Files\GrabOne` and a per-user one stays in your profile, rather
+than a second copy appearing beside the first. GrabOne closes itself so the
+installer can replace its files, and the installer offers to start it again on
+its last page.
+
+Installers are downloaded to `%LOCALAPPDATA%\GrabOne\updates`. Only the most
+recent one is kept: applying an update deletes the installers left there by
+earlier ones.
+
+Uninstall from Settings › Apps, or run `uninstall.exe` from the install folder.
+GrabOne is closed for you if it is still running, and removing a per-machine
+install raises an administrator prompt. Your settings, logs and downloads are
+left where they are; see [Settings and data](#settings-and-data) for what that
+covers and where to find it.
 
 ## Requirements
 
