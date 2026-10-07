@@ -98,12 +98,19 @@ func (j *Job) Cancel() {
 	}
 }
 
-func (j *Job) markRunning() {
+// markRunning starts a queued job and reports whether it did. A job that is no
+// longer queued, because it was cancelled while it waited, is left as it is.
+func (j *Job) markRunning() bool {
 	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	if j.status != StatusQueued {
+		return false
+	}
 	j.status = StatusRunning
 	j.startedAt = time.Now()
 	j.progress.Status = string(StatusRunning)
-	j.mu.Unlock()
+	return true
 }
 
 // applyProgress merges an update into the job's state and returns the resulting

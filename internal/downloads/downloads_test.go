@@ -2,6 +2,8 @@ package downloads
 
 import (
 	"encoding/json"
+	"path/filepath"
+	"reflect"
 	"testing"
 
 	"grabone/internal/ytdlp"
@@ -198,6 +200,60 @@ func TestManagerCancelUnknownJob(t *testing.T) {
 
 	if err := manager.Cancel("nope"); err == nil {
 		t.Error("cancelling an unknown job should be reported")
+	}
+}
+
+func TestJobCancelledBeforeItStartsNeverRuns(t *testing.T) {
+	var states []Status
+	emit := func(event string, payload any) {
+		if view, ok := payload.(View); ok && event == EventState {
+			states = append(states, view.Status)
+		}
+	}
+	// yt-dlp does not exist here, so a job that does start fails at once
+	// instead of downloading anything.
+	client := ytdlp.NewClient(filepath.Join(t.TempDir(), "no-such-yt-dlp"), "", nil)
+	manager := NewManager(client, nil, nil, emit)
+
+	// The only slot is taken, so queueing starts nothing.
+	manager.running = 1
+	view, err := manager.Enqueue(testOptions(), Metadata{Title: "Clip"})
+	if err != nil {
+		t.Fatalf("queue: %v", err)
+	}
+
+	// The steps of pump and run are taken by hand, so the cancellation lands
+	// exactly between them: the job has left the queue and holds the slot, but
+	// has not started.
+	manager.mu.Lock()
+	job := manager.jobs[view.ID]
+	manager.queue = nil
+	manager.mu.Unlock()
+
+	if err := manager.Cancel(view.ID); err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+	manager.run(job, client, nil)
+
+	got := job.View()
+	if got.Status != StatusCancelled {
+		t.Errorf("status = %q, want the job to stay cancelled", got.Status)
+	}
+	if got.StartedAt != "" {
+		t.Errorf("started at %q, want a job cancelled before it starts to have no start time", got.StartedAt)
+	}
+	if got.Error != nil {
+		t.Errorf("error = %+v, want none for a job that never ran", got.Error)
+	}
+	if want := []Status{StatusQueued, StatusCancelled}; !reflect.DeepEqual(states, want) {
+		t.Errorf("reported states = %v, want %v", states, want)
+	}
+
+	manager.mu.Lock()
+	running := manager.running
+	manager.mu.Unlock()
+	if running != 0 {
+		t.Errorf("running = %d, want the slot released for the next job", running)
 	}
 }
 

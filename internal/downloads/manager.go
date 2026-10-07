@@ -145,7 +145,12 @@ func (m *Manager) run(job *Job, client *ytdlp.Client, prober *ffmpeg.Prober) {
 	defer cancel()
 	job.setCancel(cancel)
 
-	job.markRunning()
+	// A cancellation can arrive after pump took the job off the queue and
+	// before this point. The job is already reported as cancelled, so it must
+	// not start: returning here frees the slot for the next one.
+	if !job.markRunning() {
+		return
+	}
 	m.emitState(job)
 
 	result, failure := client.Download(ctx, job.Options(), func(update ytdlp.ProgressUpdate) {
