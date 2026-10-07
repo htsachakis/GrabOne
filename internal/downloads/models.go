@@ -103,3 +103,14 @@ type View struct {
 
 // Finished reports whether the job has reached a terminal state.
 func (v View) Finished() bool { return v.Status.Finished() }
+
+// QueueOrder is the queue event emitted to the frontend: the waiting jobs in
+// the order they will start.
+type QueueOrder struct {
+	// Revision grows with every announcement. Events can overtake each other,
+	// and the interface keeps only the highest one it has seen.
+	Revision int `json:"revision"`
+	// IDs is never nil: a nil slice encodes as null, and the interface iterates
+	// this list.
+	IDs []string `json:"ids"`
+}

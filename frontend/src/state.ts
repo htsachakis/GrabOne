@@ -13,6 +13,7 @@ import type {
   DownloadView,
   EngineError,
   MediaInfo,
+  QueueOrder,
   ResolutionPreset,
   Settings,
 } from "./types";
@@ -80,6 +81,8 @@ export interface AppState {
   selection: Selection;
 
   downloads: DownloadView[];
+  /** queue is the latest announced order of the waiting jobs. */
+  queue: QueueOrder;
   commandPreview: string;
 }
 
@@ -128,6 +131,7 @@ export function initialState(): AppState {
     notice: null,
     selection: defaultSelection(),
     downloads: [],
+    queue: { revision: 0, ids: [] },
     commandPreview: "",
   };
 }
@@ -217,9 +221,52 @@ export class Store {
     this.set({ downloads });
   }
 
+  /**
+   * setQueue takes an announced queue order.
+   *
+   * Announcements can overtake each other on the way here, so one that is older
+   * than what is already known is ignored.
+   */
+  setQueue(order: QueueOrder): void {
+    if (order.revision <= this.state.queue.revision) return;
+    this.set({ queue: order });
+  }
+
   private notify(): void {
     for (const listener of this.listeners) listener(this.state);
   }
+}
+
+/** DownloadGroups is the job list split the way it is shown. */
+export interface DownloadGroups {
+  running: DownloadView[];
+  /** waiting is the queue: the job at index 0 starts next. */
+  waiting: DownloadView[];
+  finished: DownloadView[];
+}
+
+/**
+ * groupDownloads splits the jobs into running, waiting and finished.
+ *
+ * Running jobs are ordered by when they started and finished ones by when they
+ * ended, latest first. Waiting jobs follow the announced queue order. A job the
+ * announcement does not mention yet, because its own event arrived first, goes
+ * behind the ones it does, by the position it reported itself.
+ */
+export function groupDownloads(state: AppState): DownloadGroups {
+  const announced = new Map(state.queue.ids.map((id, index) => [id, index]));
+  const place = (job: DownloadView): number => announced.get(job.id) ?? announced.size + job.queuePosition;
+  const time = (value?: string): number => (value ? Date.parse(value) : 0);
+
+  return {
+    running: state.downloads
+      .filter((job) => job.status === "running")
+      .sort((a, b) => time(a.startedAt) - time(b.startedAt)),
+    waiting: state.downloads.filter((job) => job.status === "queued").sort((a, b) => place(a) - place(b)),
+    finished: state.downloads
+      .filter((job) => lifecycleRank(job.status) === 2)
+      .sort((a, b) => time(b.finishedAt) - time(a.finishedAt)),
+  };
 }
 
 /** activeDownloads returns the jobs that are queued or running. */

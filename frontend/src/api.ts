@@ -18,6 +18,7 @@ import type {
   DownloadView,
   InstallGuidance,
   PreviewResponse,
+  QueueOrder,
   Settings,
   SettingsResponse,
   StartResponse,
@@ -31,6 +32,7 @@ import type {
 /** Event names emitted by the download manager. */
 export const EVENT_PROGRESS = "download:progress";
 export const EVENT_STATE = "download:state";
+export const EVENT_QUEUE = "download:queue";
 
 /** Event names for the update flow. */
 export const EVENT_UPDATE_AVAILABLE = "update:available";
@@ -101,6 +103,11 @@ export function startDownload(request: DownloadRequest): Promise<StartResponse> 
 
 export function cancelDownload(id: string): Promise<void> {
   return App.CancelDownload(id);
+}
+
+/** moveDownload puts a waiting job at a queue position, counted from 1. */
+export function moveDownload(id: string, position: number): Promise<void> {
+  return App.MoveDownload(id, position);
 }
 
 export function listDownloads(): Promise<DownloadView[]> {
@@ -186,4 +193,9 @@ export function onProgress(handler: (progress: DownloadProgress) => void): void 
 /** onDownloadState subscribes to job state changes. */
 export function onDownloadState(handler: (view: DownloadView) => void): void {
   EventsOn(EVENT_STATE, (...args: unknown[]) => handler(args[0] as DownloadView));
+}
+
+/** onQueueOrder subscribes to changes in the order of the waiting jobs. */
+export function onQueueOrder(handler: (order: QueueOrder) => void): void {
+  EventsOn(EVENT_QUEUE, (...args: unknown[]) => handler(args[0] as QueueOrder));
 }

@@ -74,6 +74,10 @@ export function LocateDependency(arg1) {
   return window['go']['main']['App']['LocateDependency'](arg1);
 }
 
+export function MoveDownload(arg1, arg2) {
+  return window['go']['main']['App']['MoveDownload'](arg1, arg2);
+}
+
 export function OpenContainingFolder(arg1) {
   return window['go']['main']['App']['OpenContainingFolder'](arg1);
 }

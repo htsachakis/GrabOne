@@ -41,6 +41,8 @@ export function ListDownloads():Promise<Array<downloads.View>>;
 
 export function LocateDependency(arg1:string):Promise<main.SettingsResponse>;
 
+export function MoveDownload(arg1:string,arg2:number):Promise<void>;
+
 export function OpenContainingFolder(arg1:string):Promise<void>;
 
 export function OpenFile(arg1:string):Promise<void>;

@@ -88,6 +88,7 @@ export class Application {
     this.collectionView = new CollectionView((patch) => this.changeSelection(patch));
     this.downloadList = new DownloadList({
       onCancel: (id) => void api.cancelDownload(id),
+      onMove: (id, position) => void api.moveDownload(id, position),
       onOpenFile: (path) => void this.openFile(path),
       onOpenFolder: (path) => void this.openFolder(path),
       onClearFinished: () => void this.clearFinished(),
@@ -155,6 +156,7 @@ export class Application {
         this.store.set({ phase: "completed" });
       }
     });
+    api.onQueueOrder((order) => this.store.setQueue(order));
 
     api.onToolProgress((progress) => {
       this.dependencyPanel.setToolProgress(progress);
