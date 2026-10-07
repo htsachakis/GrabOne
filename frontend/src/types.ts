@@ -371,6 +371,13 @@ export interface DownloadView {
   queuePosition: number;
 }
 
+/** QueueOrder is the queue event: the waiting jobs in the order they will start. */
+export interface QueueOrder {
+  /** revision grows with every announcement; a lower one is out of date. */
+  revision: number;
+  ids: string[];
+}
+
 export interface StartResponse {
   success: boolean;
   download?: DownloadView;

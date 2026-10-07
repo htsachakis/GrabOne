@@ -309,11 +309,12 @@ body {
   white-space: nowrap;
 }
 
-.button:hover:not(:disabled) {
+.button:hover:not(:disabled, [aria-disabled="true"]) {
   border-color: var(--accent);
 }
 
-.button:disabled {
+.button:disabled,
+.button[aria-disabled="true"] {
   opacity: 0.5;
   cursor: default;
 }
@@ -752,6 +753,19 @@ body {
   gap: 12px;
 }
 
+.download-group-title {
+  margin: 4px 0 -4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.download-group-title:first-child {
+  margin-top: 0;
+}
+
 .download-card {
   display: flex;
   flex-direction: column;
@@ -894,6 +908,11 @@ body {
   flex-wrap: wrap;
   gap: 8px;
   padding-top: 2px;
+}
+
+/* Pushes the move buttons away from Cancel, to the far end of the row. */
+.download-actions-gap {
+  flex: 1;
 }
 
 .completed-line {

@@ -192,6 +192,18 @@ UUID, a status (queued, running, completed, failed, cancelled) and its own
 cancellation function. The concurrency limit is configurable; the default is one
 at a time, with the rest queued.
 
+The queue holds only the waiting jobs, in the order they will start; a running
+job is not in it. `Manager.Move` puts a waiting job at a position counted from 1
+and leaves anything that is not waiting alone, so a move that races a job
+starting does nothing. A cancelled job leaves the queue at once.
+
+One job's change shifts the position of every job behind it, so the order is
+announced whole: a `download:queue` event carries the waiting job identifiers
+whenever a job is queued, starts, is cancelled or is moved. Each announcement
+has a revision number, and the frontend keeps only the highest it has seen,
+because events can overtake each other. The job list is drawn from that order:
+running jobs, then the queue, then finished jobs.
+
 Cancellation uses `context.WithCancel`, and `cmd.Cancel` kills the whole process
 tree — yt-dlp launches FFmpeg, and a cancelled download must not leave it
 running.

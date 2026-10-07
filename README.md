@@ -42,7 +42,9 @@ and gains new sites whenever yt-dlp is updated.
   read from yt-dlp's machine-readable output rather than scraped from its
   progress bar.
 - **Queue and cancellation.** Downloads can be queued, run up to five at a time,
-  and cancelled, which also stops any FFmpeg process they started.
+  and cancelled, which also stops any FFmpeg process they started. A waiting
+  download can be moved up, down or to the front of the queue; a running one is
+  never interrupted by a move.
 - **The effective command.** The Advanced section shows the exact yt-dlp command
   your selection produces, ready to copy.
 - **Updates.** GrabOne checks GitHub for a newer release, shows what changed, and

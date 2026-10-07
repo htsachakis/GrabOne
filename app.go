@@ -407,6 +407,10 @@ func (a *App) StartDownload(request DownloadRequest) StartResponse {
 // CancelDownload stops a running or queued download.
 func (a *App) CancelDownload(id string) error { return a.manager.Cancel(id) }
 
+// MoveDownload puts a waiting download at a queue position, counted from 1.
+// The new order reaches the interface as a queue event.
+func (a *App) MoveDownload(id string, position int) { a.manager.Move(id, position) }
+
 // ListDownloads returns every job in this session.
 func (a *App) ListDownloads() []downloads.View { return a.manager.List() }
 

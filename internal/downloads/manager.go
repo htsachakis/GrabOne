@@ -19,6 +19,7 @@ type Emitter func(event string, payload any)
 const (
 	EventProgress = "download:progress"
 	EventState    = "download:state"
+	EventQueue    = "download:queue"
 )
 
 // Manager runs download jobs. One job at a time is the default, but the queue
@@ -33,7 +34,11 @@ type Manager struct {
 
 	jobs  map[string]*Job
 	order []string
+	// queue holds the waiting jobs in the order they will start.
 	queue []string
+	// queueRevision numbers the queue announcements, so the interface can tell
+	// a late one from the latest.
+	queueRevision int
 
 	maxConcurrent int
 	running       int
@@ -103,6 +108,7 @@ func (m *Manager) Enqueue(options ytdlp.DownloadOptions, metadata Metadata) (Vie
 	m.logger.Info("download queued", "id", job.id, "url", options.URL, "type", options.DownloadType)
 
 	m.emitState(job)
+	m.emitQueue()
 	m.pump()
 
 	return m.viewOf(job), nil
@@ -110,6 +116,13 @@ func (m *Manager) Enqueue(options ytdlp.DownloadOptions, metadata Metadata) (Vie
 
 // pump starts queued jobs while a slot is free.
 func (m *Manager) pump() {
+	started := false
+	defer func() {
+		if started {
+			m.emitQueue()
+		}
+	}()
+
 	for {
 		m.mu.Lock()
 		if m.running >= m.maxConcurrent || len(m.queue) == 0 {
@@ -119,6 +132,7 @@ func (m *Manager) pump() {
 
 		id := m.queue[0]
 		m.queue = m.queue[1:]
+		started = true
 		job, ok := m.jobs[id]
 		if !ok || job.Status() != StatusQueued {
 			m.mu.Unlock()
@@ -192,8 +206,14 @@ func (m *Manager) Cancel(id string) error {
 	job.Cancel()
 
 	if job.Status() == StatusCancelled {
-		// A queued job stops without ever running, so report it here.
+		// A queued job stops without ever running, so report it here. It leaves
+		// the queue at once: left in place it would still count in the
+		// positions of the jobs behind it.
+		left := m.leaveQueue(id)
 		m.emitState(job)
+		if left {
+			m.emitQueue()
+		}
 		m.pump()
 	}
 	return nil
@@ -274,6 +294,67 @@ func (m *Manager) ActiveCount() int {
 		}
 	}
 	return count
+}
+
+// Move puts a waiting job at a queue position, counted from 1. A position
+// outside the queue lands on the nearest end. A job that is not waiting, because
+// it has started, finished or never existed, is left alone.
+func (m *Manager) Move(id string, position int) {
+	m.mu.Lock()
+	from := m.queueIndexLocked(id)
+	if from < 0 {
+		m.mu.Unlock()
+		return
+	}
+
+	to := min(max(position, 1), len(m.queue)) - 1
+	if to == from {
+		m.mu.Unlock()
+		return
+	}
+
+	queue := append(m.queue[:from:from], m.queue[from+1:]...)
+	m.queue = append(queue[:to:to], append([]string{id}, queue[to:]...)...)
+	m.mu.Unlock()
+
+	m.logger.Info("download moved in the queue", "id", id, "position", to+1)
+	m.emitQueue()
+}
+
+// queueIndexLocked returns where a job waits in the queue, or -1 when it does
+// not. The caller holds the lock.
+func (m *Manager) queueIndexLocked(id string) int {
+	for index, queued := range m.queue {
+		if queued == id {
+			return index
+		}
+	}
+	return -1
+}
+
+// leaveQueue takes a job out of the queue and reports whether it was there.
+func (m *Manager) leaveQueue(id string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	index := m.queueIndexLocked(id)
+	if index < 0 {
+		return false
+	}
+	m.queue = append(m.queue[:index:index], m.queue[index+1:]...)
+	return true
+}
+
+// emitQueue announces the queue's order. Every waiting job's position can
+// change when one job starts, is cancelled or is moved, so the order is sent
+// whole instead of one job at a time.
+func (m *Manager) emitQueue() {
+	m.mu.Lock()
+	m.queueRevision++
+	order := QueueOrder{Revision: m.queueRevision, IDs: append([]string{}, m.queue...)}
+	m.mu.Unlock()
+
+	m.emit(EventQueue, order)
 }
 
 func (m *Manager) emitState(job *Job) {

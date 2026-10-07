@@ -1,11 +1,13 @@
 import { el, replace } from "../dom";
 import { formatBytes, formatEta, formatPercent, formatSize, formatSpeed, stageLabel } from "../format";
-import type { AppState } from "../state";
+import { groupDownloads, type AppState } from "../state";
 import type { DownloadView } from "../types";
 import { errorBlock } from "./ErrorPanel";
 
 export interface DownloadListHandlers {
   onCancel: (id: string) => void;
+  /** onMove puts a waiting job at a queue position, counted from 1. */
+  onMove: (id: string, position: number) => void;
   onOpenFile: (path: string) => void;
   onOpenFolder: (path: string) => void;
   onClearFinished: () => void;
@@ -15,6 +17,9 @@ export interface DownloadListHandlers {
 /**
  * DownloadList shows every job of the session: what stage it is at, how far it
  * has come, and what to do with the finished file.
+ *
+ * The jobs are grouped: what is downloading, then the queue in the order it
+ * will start, then what has finished. Up on the screen means sooner.
  *
  * Progress comes from yt-dlp's machine readable output. When a site reports no
  * size, the bar falls back to what is known instead of inventing a percentage.
@@ -49,13 +54,83 @@ export class DownloadList {
     }
     this.element.hidden = false;
 
-    replace(
-      this.list,
-      state.downloads.map((job) => this.jobCard(job)),
-    );
+    const groups = groupDownloads(state);
+    const focused = this.focusedMove();
+
+    replace(this.list, [
+      ...this.group("Downloading", groups.running.map((job) => this.jobCard(job))),
+      ...this.group(
+        "Up next",
+        groups.waiting.map((job, index) => this.jobCard(job, index + 1, groups.waiting.length)),
+      ),
+      ...this.group("Finished", groups.finished.map((job) => this.jobCard(job))),
+    ]);
+
+    if (focused) this.restoreFocus(focused.job, focused.move);
   }
 
-  private jobCard(job: DownloadView): HTMLElement {
+  /** group puts a heading above a set of cards, and nothing when there are none. */
+  private group(title: string, cards: HTMLElement[]): HTMLElement[] {
+    if (cards.length === 0) return [];
+    return [el("h3", { className: "download-group-title", text: title }), ...cards];
+  }
+
+  /** focusedMove reports which move button holds the keyboard focus, if one does. */
+  private focusedMove(): { job: string; move: string } | null {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement) || !this.list.contains(active)) return null;
+
+    const { job, move } = active.dataset;
+    return job && move ? { job, move } : null;
+  }
+
+  /**
+   * restoreFocus returns the focus to a job's move button after the list was
+   * rebuilt, so the same key press can move the job again. "Start next" is gone
+   * once the job is at the front, and the up button takes the focus then.
+   */
+  private restoreFocus(job: string, move: string): void {
+    const buttons = Array.from(this.list.querySelectorAll<HTMLButtonElement>("button[data-move]")).filter(
+      (button) => button.dataset.job === job,
+    );
+    const find = (wanted: string) => buttons.find((button) => button.dataset.move === wanted);
+    (find(move) ?? find("up"))?.focus();
+  }
+
+  /** moveButtons are the controls that change a waiting job's queue position. */
+  private moveButtons(job: DownloadView, position: number, waiting: number): (HTMLElement | false)[] {
+    // A button with nowhere to go is marked aria-disabled, not disabled, so it
+    // can keep the focus. Pressing up until the job reaches the front then ends
+    // on a button that does nothing, not on the one that moves it back down.
+    const button = (move: string, text: string, label: string, target: number, usable: boolean): HTMLElement =>
+      el("button", {
+        className: "button subtle",
+        text,
+        title: label,
+        attrs: { type: "button", "aria-label": label, "aria-disabled": usable ? null : "true" },
+        dataset: { job: job.id, move },
+        on: {
+          click: () => {
+            if (usable) this.handlers.onMove(job.id, target);
+          },
+        },
+      });
+
+    // "Start next" comes first so the arrows stay in the same place on every
+    // card, whether or not it is shown.
+    return [
+      el("span", { className: "download-actions-gap" }),
+      position > 1 && button("front", "Start next", "Start next", 1, true),
+      button("up", "↑", "Move up", position - 1, position > 1),
+      button("down", "↓", "Move down", position + 1, position < waiting),
+    ];
+  }
+
+  /**
+   * jobCard draws one job. A waiting job is given its queue position and the
+   * number of waiting jobs, which decide the move buttons it shows.
+   */
+  private jobCard(job: DownloadView, position = 0, waiting = 0): HTMLElement {
     const progress = job.progress;
     const running = job.status === "running";
     const percent = progress.overallPercent || progress.percent;
@@ -80,9 +155,10 @@ export class DownloadList {
       body.push(
         el("p", {
           className: "hint",
-          text: job.queuePosition > 0 ? `Waiting in the queue at position ${job.queuePosition}.` : "Waiting to start.",
+          text: position > 0 ? `Waiting in the queue at position ${position}.` : "Waiting to start.",
         }),
-        // A job that has not started yet can still be taken out of the queue.
+        // A job that has not started yet can still be taken out of the queue,
+        // or moved within it when there is another job to move past.
         el("div", { className: "download-actions" }, [
           el("button", {
             className: "button subtle",
@@ -90,6 +166,7 @@ export class DownloadList {
             attrs: { type: "button" },
             on: { click: () => this.handlers.onCancel(job.id) },
           }),
+          ...(waiting > 1 ? this.moveButtons(job, position, waiting) : []),
         ]),
       );
     }
