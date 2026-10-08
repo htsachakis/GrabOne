@@ -91,13 +91,11 @@ func (m *Manager) Enqueue(options ytdlp.DownloadOptions, metadata Metadata) (Vie
 		return View{}, fmt.Errorf("queue download: yt-dlp is not available")
 	}
 
-	args, err := ytdlp.BuildDownloadArgs(options)
-	if err != nil {
+	if _, err := ytdlp.BuildDownloadArgs(options); err != nil {
 		return View{}, err
 	}
-	command := ytdlp.BuildCommandPreview(client.BinaryPath(), args)
 
-	job := newJob(uuid.NewString(), options, metadata, command)
+	job := newJob(uuid.NewString(), options, metadata, commandFor(client, options))
 
 	m.mu.Lock()
 	m.jobs[job.id] = job
@@ -167,10 +165,25 @@ func (m *Manager) run(job *Job, client *ytdlp.Client, prober *ffmpeg.Prober) {
 	}
 	m.emitState(job)
 
-	result, failure := client.Download(ctx, job.Options(), func(update ytdlp.ProgressUpdate) {
+	onProgress := func(update ytdlp.ProgressUpdate) {
 		progress := job.applyProgress(update)
 		m.emit(EventProgress, progress)
-	})
+	}
+
+	options := job.Options()
+	result, failure := client.Download(ctx, options, onProgress)
+
+	if earnsPlainRetry(options, failure) {
+		m.logger.Info("download failed with speed settings, retrying without them",
+			"id", job.ID(), "kind", string(failure.Kind), "message", failure.Message)
+
+		plain := options.PlainRetry()
+		job.beginPlainRetry(plain, commandFor(client, plain))
+		m.emit(EventProgress, job.View().Progress)
+		m.emitState(job)
+
+		result, failure = client.Download(ctx, plain, onProgress)
+	}
 
 	job.finish(result, failure)
 
@@ -180,6 +193,32 @@ func (m *Manager) run(job *Job, client *ytdlp.Client, prober *ffmpeg.Prober) {
 
 	m.emit(EventProgress, job.View().Progress)
 	m.emitState(job)
+}
+
+// earnsPlainRetry reports whether a failed attempt is worth a plain retry. There
+// has to be a speed setting to drop, and the failure has to be one the transfer
+// could have caused: media that is private, blocked or gone stays that way
+// however it is fetched, and asking again only repeats the request.
+func earnsPlainRetry(options ytdlp.DownloadOptions, failure *ytdlp.Error) bool {
+	if failure == nil || !options.Speed.Active() {
+		return false
+	}
+	switch failure.Kind {
+	case ytdlp.KindNetwork, ytdlp.KindTimeout, ytdlp.KindUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// commandFor renders the command a set of options runs, for the advanced
+// section. Options that cannot be built have no command to show.
+func commandFor(client *ytdlp.Client, options ytdlp.DownloadOptions) string {
+	args, err := ytdlp.BuildDownloadArgs(options)
+	if err != nil {
+		return ""
+	}
+	return ytdlp.BuildCommandPreview(client.BinaryPath(), args)
 }
 
 // inspectResult reads the finished file with FFprobe so the interface can show

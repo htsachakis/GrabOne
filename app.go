@@ -521,6 +521,7 @@ func (a *App) buildOptions(request DownloadRequest) (ytdlp.DownloadOptions, *ytd
 		PlaylistItems:  request.PlaylistItems,
 
 		Cookies: cookieOptions(settings),
+		Speed:   speedOptions(settings),
 	}
 
 	a.applyAnalysisContext(&options)
@@ -740,6 +741,16 @@ func cookieOptions(settings config.Config) ytdlp.CookieOptions {
 		Browser: settings.CookieBrowser,
 		File:    settings.CookieFile,
 	}.Usable()
+}
+
+// speedOptions maps the stored speed settings onto the engine options. They are
+// read when the download is built, so a job keeps the values it was started
+// with however the settings change afterwards.
+func speedOptions(settings config.Config) ytdlp.SpeedOptions {
+	return ytdlp.SpeedOptions{
+		Connections:     settings.Connections,
+		ChunkedTransfer: settings.ChunkedTransfer,
+	}
 }
 
 // selectionDefaults chooses the starting selection from the analysis, so the

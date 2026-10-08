@@ -240,6 +240,9 @@ export interface Settings {
   filenameTemplate: string;
   theme: string;
   maxConcurrentDownloads: number;
+  /** connections and chunkedTransfer are the speed settings. */
+  connections: number;
+  chunkedTransfer: boolean;
   autoCheckUpdates: boolean;
   skippedUpdateVersion: string;
   cookieSource: string;
@@ -369,6 +372,8 @@ export interface DownloadView {
   startedAt?: string;
   finishedAt?: string;
   queuePosition: number;
+  /** plainRetry is set once the job was tried again without the speed settings. */
+  plainRetry: boolean;
 }
 
 /** QueueOrder is the queue event: the waiting jobs in the order they will start. */

@@ -20,8 +20,8 @@ export interface SettingsHandlers {
 }
 
 /**
- * SettingsPanel groups the dependency locations, the download defaults and the
- * authentication choice.
+ * SettingsPanel groups the dependency locations, the download defaults, the
+ * speed settings and the authentication choice.
  *
  * Authentication is handled by handing yt-dlp a browser name or a cookie file.
  * GrabOne never reads a browser's cookie store itself and never logs cookie
@@ -98,6 +98,7 @@ export class SettingsPanel {
 
     replace(this.sections, [
       this.downloadsSection(settings),
+      this.speedSection(settings),
       this.authenticationSection(settings),
       this.appearanceSection(settings),
       this.updatesSection(settings),
@@ -165,6 +166,68 @@ export class SettingsPanel {
           ),
         ),
         el("p", { className: "hint", text: "Extra downloads wait in the queue until a slot is free." }),
+      ]),
+    ]);
+  }
+
+  /**
+   * speedSection holds the speed settings: the choices that change how fast a
+   * job fetches its media, and never what is saved.
+   *
+   * They apply to jobs started from now on. A job that fails with any of them
+   * active is tried once more without them, so a setting a site does not accept
+   * costs time and not the download.
+   */
+  private speedSection(settings: Settings): HTMLElement {
+    const counts = Array.from({ length: 16 }, (_, index) => index + 1);
+
+    return el("section", { className: "panel" }, [
+      el("h2", { className: "panel-title", text: "Speed" }),
+      el("p", {
+        className: "hint",
+        text: "For sites that slow each connection down. These apply to downloads you start from now on. If a download fails with them, GrabOne tries it once more without them.",
+      }),
+
+      el("div", { className: "field" }, [
+        el("span", { className: "field-label", text: "Connections per download" }),
+        el(
+          "select",
+          {
+            className: "select narrow",
+            on: {
+              change: (event) =>
+                this.save(settings, {
+                  connections: Number((event.currentTarget as HTMLSelectElement).value),
+                }),
+            },
+          },
+          counts.map((count) =>
+            el("option", {
+              text: String(count),
+              attrs: { value: count, selected: count === settings.connections },
+            }),
+          ),
+        ),
+        el("p", {
+          className: "hint",
+          text: "How many pieces of one download are fetched at the same time. It only helps media a site delivers in pieces; a single-file stream still uses one connection.",
+        }),
+        settings.connections > 4
+          ? el("p", {
+              className: "hint warning",
+              text: "High values can get you rate limited or blocked by a site, more so with several simultaneous downloads.",
+            })
+          : el("span"),
+      ]),
+
+      el("div", { className: "field" }, [
+        this.checkbox("Chunked transfer", settings.chunkedTransfer, (checked) =>
+          this.save(settings, { chunkedTransfer: checked }),
+        ),
+        el("p", {
+          className: "hint",
+          text: "Asks for a single-file stream in 10 MB pieces, which gets past some sites that slow a long transfer down. Turn it off if a site misbehaves.",
+        }),
       ]),
     ]);
   }

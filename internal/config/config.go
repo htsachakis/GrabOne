@@ -32,6 +32,9 @@ const DefaultFilenameTemplate = "%(title)s.%(ext)s"
 // MaxConcurrentDownloadsLimit caps how many downloads may run at once.
 const MaxConcurrentDownloadsLimit = 5
 
+// MaxConnectionsLimit caps how many connections one job may use.
+const MaxConnectionsLimit = 16
+
 // Preferences remembers the last used download options so the user does not
 // have to re-tick the same boxes on every download.
 type Preferences struct {
@@ -65,6 +68,11 @@ type Config struct {
 
 	MaxConcurrentDownloads int `json:"maxConcurrentDownloads"`
 
+	// Connections and ChunkedTransfer are the speed settings: they change how
+	// fast a job fetches its media, never what is saved.
+	Connections     int  `json:"connections"`
+	ChunkedTransfer bool `json:"chunkedTransfer"`
+
 	// AutoCheckUpdates asks GitHub for a newer release shortly after startup.
 	AutoCheckUpdates bool `json:"autoCheckUpdates"`
 	// SkippedUpdateVersion is a version the user chose not to be reminded about.
@@ -84,6 +92,8 @@ func Default() Config {
 		FilenameTemplate:       DefaultFilenameTemplate,
 		Theme:                  ThemeDark,
 		MaxConcurrentDownloads: 1,
+		Connections:            1,
+		ChunkedTransfer:        true,
 		AutoCheckUpdates:       true,
 		CookieSource:           CookieSourceNone,
 		Preferences: Preferences{
@@ -118,6 +128,12 @@ func (c *Config) Normalize() {
 	}
 	if c.MaxConcurrentDownloads > MaxConcurrentDownloadsLimit {
 		c.MaxConcurrentDownloads = MaxConcurrentDownloadsLimit
+	}
+	if c.Connections < 1 {
+		c.Connections = 1
+	}
+	if c.Connections > MaxConnectionsLimit {
+		c.Connections = MaxConnectionsLimit
 	}
 	switch c.CookieSource {
 	case CookieSourceNone, CookieSourceBrowser, CookieSourceFile:

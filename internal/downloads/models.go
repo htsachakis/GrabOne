@@ -99,6 +99,10 @@ type View struct {
 	FinishedAt string `json:"finishedAt,omitempty"`
 	// QueuePosition is 1-based for queued jobs, 0 otherwise.
 	QueuePosition int `json:"queuePosition"`
+
+	// PlainRetry reports that the first attempt failed and the job was tried
+	// again with every speed setting dropped.
+	PlainRetry bool `json:"plainRetry"`
 }
 
 // Finished reports whether the job has reached a terminal state.

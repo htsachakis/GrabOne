@@ -347,3 +347,57 @@ func TestLiveCancellationStopsTheDownload(t *testing.T) {
 	}
 	t.Logf("cancelled, %d partial file(s) left behind", len(entries))
 }
+
+func TestLiveDownloadWithSpeedSettings(t *testing.T) {
+	client := liveClient(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	// A single-file stream, which is what chunked transfer applies to.
+	options := DownloadOptions{
+		URL:              "https://download.blender.org/peach/trailer/trailer_400p.ogg",
+		DownloadType:     DownloadTypeVideoOnly,
+		OutputDirectory:  t.TempDir(),
+		FilenameTemplate: "%(title)s.%(ext)s",
+		Speed:            SpeedOptions{Connections: 4, ChunkedTransfer: true},
+	}
+
+	download := func(options DownloadOptions) (int64, float64) {
+		t.Helper()
+
+		var lastPercent float64
+		result, failure := client.Download(ctx, options, func(update ProgressUpdate) {
+			if update.OverallPercent > 0 {
+				lastPercent = update.OverallPercent
+			}
+		})
+		if failure != nil {
+			t.Fatalf("download: [%s] %s\n%s", failure.Kind, failure.Message, failure.Details)
+		}
+		info, err := os.Stat(result.FinalPath)
+		if err != nil {
+			t.Fatalf("the reported file is not there: %v", err)
+		}
+		return info.Size(), lastPercent
+	}
+
+	size, percent := download(options)
+	t.Logf("with speed settings: %d bytes, last reported %.1f%%", size, percent)
+	if size == 0 {
+		t.Error("the downloaded file is empty")
+	}
+	if percent < 99 {
+		t.Errorf("last progress = %.1f%%, want the speed settings to leave progress reporting intact", percent)
+	}
+
+	// The plain retry is the same request without them, in a folder of its own
+	// so it has to fetch the media again.
+	plain := options.PlainRetry()
+	plain.OutputDirectory = t.TempDir()
+
+	plainSize, _ := download(plain)
+	if plainSize != size {
+		t.Errorf("plain retry saved %d bytes, want the same %d: speed settings must not change what is saved", plainSize, size)
+	}
+}

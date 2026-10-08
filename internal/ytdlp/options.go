@@ -2,8 +2,10 @@ package ytdlp
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
+	"grabone/internal/config"
 	"grabone/internal/media"
 )
 
@@ -124,6 +126,35 @@ func isKnownBrowser(name string) bool {
 	return false
 }
 
+// SpeedOptions are the user's speed settings. They change how fast the media is
+// fetched and never what is saved, which is why a failed download can be tried
+// again without them.
+type SpeedOptions struct {
+	// Connections is how many transfers the download may make at the same
+	// time. Zero and one both mean yt-dlp's own behaviour of one at a time.
+	Connections int `json:"connections"`
+	// ChunkedTransfer asks for a single-file stream in pieces, which gets past
+	// some servers that slow a long request down.
+	ChunkedTransfer bool `json:"chunkedTransfer"`
+}
+
+// Active reports whether the settings change the transfer at all.
+func (s SpeedOptions) Active() bool { return s.Connections > 1 || s.ChunkedTransfer }
+
+// Args renders the speed switches for yt-dlp.
+func (s SpeedOptions) Args() []string {
+	var args []string
+	if s.Connections > 1 {
+		// Only a stream delivered in fragments has several pieces to fetch at
+		// once. yt-dlp fetches a single-file stream over one connection.
+		args = append(args, "--concurrent-fragments", strconv.Itoa(s.Connections))
+	}
+	if s.ChunkedTransfer {
+		args = append(args, "--http-chunk-size", chunkSize)
+	}
+	return args
+}
+
 // DownloadOptions is the complete description of a requested download. It is
 // validated before any argument is built: values arriving from the interface are
 // checked against known options rather than passed through to the command line.
@@ -172,6 +203,12 @@ type DownloadOptions struct {
 
 	Cookies CookieOptions `json:"cookies"`
 
+	Speed SpeedOptions `json:"speed"`
+
+	// Restart ignores what an earlier attempt left on disk and fetches the
+	// media from the first byte.
+	Restart bool `json:"restart"`
+
 	// SelectedVideoCodec and SelectedAudioCodec are the raw codecs of the
 	// chosen streams, used to decide the automatic container. They are filled
 	// in by the caller from the analysis result.
@@ -214,10 +251,22 @@ func (o DownloadOptions) Validate() error {
 	if err := o.Cookies.Validate(); err != nil {
 		return err
 	}
+	if o.Speed.Connections < 0 || o.Speed.Connections > config.MaxConnectionsLimit {
+		return fmt.Errorf("unsupported number of connections %d", o.Speed.Connections)
+	}
 	if !isSafeFormatID(o.VideoFormatID) || !isSafeFormatID(o.AudioFormatID) || !isSafeFormatID(o.CombinedFormatID) {
 		return fmt.Errorf("invalid format identifier")
 	}
 	return nil
+}
+
+// PlainRetry returns the options for a second attempt at a failed download: the
+// same request with every speed setting dropped, starting from zero bytes
+// because what the first attempt left behind was written with those settings.
+func (o DownloadOptions) PlainRetry() DownloadOptions {
+	o.Speed = SpeedOptions{}
+	o.Restart = true
+	return o
 }
 
 // isSafeFormatID guards against a format identifier being used to smuggle extra

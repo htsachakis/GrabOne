@@ -46,6 +46,8 @@ export namespace config {
 	    filenameTemplate: string;
 	    theme: string;
 	    maxConcurrentDownloads: number;
+	    connections: number;
+	    chunkedTransfer: boolean;
 	    autoCheckUpdates: boolean;
 	    skippedUpdateVersion: string;
 	    cookieSource: string;
@@ -66,6 +68,8 @@ export namespace config {
 	        this.filenameTemplate = source["filenameTemplate"];
 	        this.theme = source["theme"];
 	        this.maxConcurrentDownloads = source["maxConcurrentDownloads"];
+	        this.connections = source["connections"];
+	        this.chunkedTransfer = source["chunkedTransfer"];
 	        this.autoCheckUpdates = source["autoCheckUpdates"];
 	        this.skippedUpdateVersion = source["skippedUpdateVersion"];
 	        this.cookieSource = source["cookieSource"];
@@ -305,6 +309,7 @@ export namespace downloads {
 	    startedAt?: string;
 	    finishedAt?: string;
 	    queuePosition: number;
+	    plainRetry: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new View(source);
@@ -329,6 +334,7 @@ export namespace downloads {
 	        this.startedAt = source["startedAt"];
 	        this.finishedAt = source["finishedAt"];
 	        this.queuePosition = source["queuePosition"];
+	        this.plainRetry = source["plainRetry"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

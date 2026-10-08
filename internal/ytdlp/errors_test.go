@@ -77,6 +77,14 @@ func TestClassifyError(t *testing.T) {
 			wantKind: KindNetwork,
 		},
 		{
+			// "Service Unavailable" is the server refusing the request, not the
+			// media being gone, and it is how some servers answer too many
+			// connections at once.
+			name:     "server refuses the transfer",
+			output:   "ERROR: unable to download video data: HTTP Error 503: Service Unavailable",
+			wantKind: KindNetwork,
+		},
+		{
 			name:     "geo blocked",
 			output:   "ERROR: [youtube] abc: The uploader has not made this video available in your country",
 			wantKind: KindGeoBlocked,

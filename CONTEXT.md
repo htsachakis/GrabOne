@@ -11,7 +11,18 @@ One download request, created by one press of Download. A job covers a single vi
 _Avoid_: Media in the queue, item, task
 
 **Slot**:
-The capacity to run one job. The number of slots is the user's concurrency setting.
+The capacity to run one job. The number of slots is the user's simultaneous downloads setting.
+
+**Connections**:
+How many transfers one running job may make at the same time to fetch its media. It is the user's setting for speeding up a single job, and is independent of the number of slots.
+_Avoid_: Threads, parallel downloads, concurrency
+
+**Speed settings**:
+The user's choices that change how fast a job fetches its media without changing what is saved: connections, chunked transfer, and handing single-file streams to aria2c.
+
+**Plain retry**:
+A second attempt at a failed job with every speed setting dropped. A job gets at most one, and it stays the same job in the same slot.
+_Avoid_: Fallback, re-queue
 
 **Running job**:
 A job that holds a slot. It is not part of the queue.

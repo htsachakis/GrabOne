@@ -157,6 +157,17 @@ what ends up on disk, whatever the site published. WebM falls back to WebVTT
 because it carries nothing else, and a thumbnail is saved beside a WebM file
 rather than embedded, because WebM has no cover art.
 
+The speed settings add up to two switches, and change how fast the media is
+fetched without changing what is saved:
+
+| Setting | Switch | Applies to |
+| --- | --- | --- |
+| Connections above 1 | `--concurrent-fragments <n>` | Streams delivered in fragments |
+| Chunked transfer | `--http-chunk-size 10M` | Single-file streams |
+
+They come from the settings when the download is built, so a job keeps the
+values it was started with.
+
 ### 6. Running and reporting
 
 `Client.Download` adds the reporting switches, which are deliberately kept apart
@@ -207,6 +218,14 @@ running jobs, then the queue, then finished jobs.
 Cancellation uses `context.WithCancel`, and `cmd.Cancel` kills the whole process
 tree — yt-dlp launches FFmpeg, and a cancelled download must not leave it
 running.
+
+A job that fails with a speed setting active gets one plain retry: the same
+request with every speed setting dropped and `--no-continue`, so it starts from
+zero bytes instead of building on what the first attempt left behind. It stays
+the same job in the same slot, and its command becomes the one the retry runs.
+Only a network, timeout or unclassified failure earns it — media that is
+private, blocked or gone stays that way however it is fetched. If the retry
+fails too, its error is the one reported.
 
 When a download finishes, FFprobe inspects the result so the interface can
 report what was actually produced. A failure there is not a failed download.

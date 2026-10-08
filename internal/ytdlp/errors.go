@@ -106,6 +106,14 @@ var errorRules = []struct {
 		message: "This media is not available in your region.",
 	},
 	{
+		// Ahead of "unavailable": a 503 reads "Service Unavailable", which is the
+		// server turning the request away and says nothing about the media.
+		phrases: []string{"http error 503"},
+		kind:    KindNetwork,
+		message: "The site refused the request.",
+		hint:    "It may be busy or limiting how fast you download. Wait a little and try again.",
+	},
+	{
 		phrases: []string{
 			"unavailable", "no longer available", "has been removed",
 			"been terminated", "does not exist", "http error 404", "http error 410", "not found",

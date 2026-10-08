@@ -18,6 +18,10 @@ const (
 	progressDeltaValue = "0.5"
 )
 
+// chunkSize is the piece size of a chunked transfer, the value yt-dlp's own
+// documentation suggests.
+const chunkSize = "10M"
+
 // encodingArgs forces yt-dlp to write its output as UTF-8.
 //
 // Without this yt-dlp encodes what it prints using an encoding derived from the
@@ -109,6 +113,10 @@ func BuildDownloadArgs(options DownloadOptions) ([]string, error) {
 	args = append(args, collectionArgs(options)...)
 	args = append(args, outputArgs(options)...)
 	args = append(args, options.Cookies.Args()...)
+	args = append(args, options.Speed.Args()...)
+	if options.Restart {
+		args = append(args, "--no-continue")
+	}
 
 	// "--" ends the switches, so a URL can never be read as one.
 	return append(args, "--", options.URL), nil

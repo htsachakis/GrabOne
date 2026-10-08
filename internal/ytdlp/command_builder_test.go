@@ -600,3 +600,103 @@ func TestBrowserProfileIsPassedThrough(t *testing.T) {
 		t.Errorf("args = %v, want the profile appended to the browser", args)
 	}
 }
+
+func TestSpeedSettingsBecomeSwitches(t *testing.T) {
+	tests := []struct {
+		name          string
+		speed         SpeedOptions
+		wantFragments string
+		wantChunk     string
+	}{
+		{name: "nothing set", speed: SpeedOptions{}},
+		{name: "one connection is yt-dlp's own behaviour", speed: SpeedOptions{Connections: 1}},
+		{name: "several connections", speed: SpeedOptions{Connections: 4}, wantFragments: "4"},
+		{name: "chunked transfer", speed: SpeedOptions{ChunkedTransfer: true}, wantChunk: "10M"},
+		{name: "both", speed: SpeedOptions{Connections: 16, ChunkedTransfer: true}, wantFragments: "16", wantChunk: "10M"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			options := baseOptions()
+			options.Speed = test.speed
+
+			args, err := BuildDownloadArgs(options)
+			if err != nil {
+				t.Fatalf("build: %v", err)
+			}
+
+			if got, _ := argValue(args, "--concurrent-fragments"); got != test.wantFragments {
+				t.Errorf("--concurrent-fragments = %q, want %q", got, test.wantFragments)
+			}
+			if got, _ := argValue(args, "--http-chunk-size"); got != test.wantChunk {
+				t.Errorf("--http-chunk-size = %q, want %q", got, test.wantChunk)
+			}
+			if args[len(args)-2] != "--" {
+				t.Errorf("args end with %v, want the URL to stay behind the end of the switches", args[len(args)-2:])
+			}
+		})
+	}
+}
+
+func TestConnectionsOutsideTheLimitAreRejected(t *testing.T) {
+	for _, connections := range []int{-1, 17} {
+		options := baseOptions()
+		options.Speed.Connections = connections
+
+		if err := options.Validate(); err == nil {
+			t.Errorf("%d connections passed validation, want it refused", connections)
+		}
+	}
+}
+
+func TestSpeedSettingsAreActiveOnlyWhenTheyChangeTheTransfer(t *testing.T) {
+	tests := []struct {
+		speed SpeedOptions
+		want  bool
+	}{
+		{SpeedOptions{}, false},
+		{SpeedOptions{Connections: 1}, false},
+		{SpeedOptions{Connections: 2}, true},
+		{SpeedOptions{ChunkedTransfer: true}, true},
+	}
+
+	for _, test := range tests {
+		if got := test.speed.Active(); got != test.want {
+			t.Errorf("%+v active = %v, want %v", test.speed, got, test.want)
+		}
+	}
+}
+
+func TestPlainRetryDropsTheSpeedSettingsAndStartsOver(t *testing.T) {
+	options := baseOptions()
+	options.VideoFormatID = "137"
+	options.Speed = SpeedOptions{Connections: 8, ChunkedTransfer: true}
+
+	plain := options.PlainRetry()
+
+	args, err := BuildDownloadArgs(plain)
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	for _, flag := range []string{"--concurrent-fragments", "--http-chunk-size"} {
+		if hasArg(args, flag) {
+			t.Errorf("a plain retry still passes %s: %v", flag, args)
+		}
+	}
+	// What the first attempt left on disk was written with the speed settings,
+	// so the retry does not build on it.
+	if !hasArg(args, "--no-continue") {
+		t.Errorf("a plain retry should start from zero bytes: %v", args)
+	}
+	if selector, _ := argValue(args, "-f"); selector != "137+ba/137" {
+		t.Errorf("format selector = %q, want what the user chose to stay", selector)
+	}
+
+	first, err := BuildDownloadArgs(options)
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if hasArg(first, "--no-continue") {
+		t.Errorf("a first attempt should resume what is on disk: %v", first)
+	}
+}

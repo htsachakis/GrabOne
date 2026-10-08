@@ -223,3 +223,80 @@ func TestStoreUpdate(t *testing.T) {
 		t.Error("Get returned a view into the store's own state")
 	}
 }
+
+func TestSpeedSettingsStartSafe(t *testing.T) {
+	cfg := Default()
+
+	// One connection is what yt-dlp does by itself, so nothing changes for a
+	// user who never opens the setting.
+	if cfg.Connections != 1 {
+		t.Errorf("connections = %d, want 1", cfg.Connections)
+	}
+	if !cfg.ChunkedTransfer {
+		t.Error("chunked transfer should be on for a fresh installation")
+	}
+}
+
+func TestNormalizeKeepsConnectionsWithinTheLimit(t *testing.T) {
+	tests := []struct {
+		stored int
+		want   int
+	}{
+		{stored: 0, want: 1},
+		{stored: -3, want: 1},
+		{stored: 8, want: 8},
+		{stored: 99, want: MaxConnectionsLimit},
+	}
+
+	for _, test := range tests {
+		cfg := Config{Connections: test.stored}
+		cfg.Normalize()
+		if cfg.Connections != test.want {
+			t.Errorf("connections %d became %d, want %d", test.stored, cfg.Connections, test.want)
+		}
+	}
+}
+
+func TestOlderSettingsFileGetsTheSpeedDefaults(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	// A settings file written before the speed settings existed.
+	contents := `{"outputDirectory": "D:\\Media", "maxConcurrentDownloads": 2}`
+	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	if cfg.Connections != 1 {
+		t.Errorf("connections = %d, want the default for a missing key", cfg.Connections)
+	}
+	if !cfg.ChunkedTransfer {
+		t.Error("chunked transfer should take its default when the key is missing")
+	}
+}
+
+func TestChunkedTransferCanBeSwitchedOff(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+
+	cfg := Default()
+	cfg.ChunkedTransfer = false
+	cfg.Connections = 6
+	if err := Save(path, cfg); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	reloaded, err := Load(path)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	// Off is a choice, not a missing value: loading must not turn it back on.
+	if reloaded.ChunkedTransfer {
+		t.Error("chunked transfer came back on after it was switched off")
+	}
+	if reloaded.Connections != 6 {
+		t.Errorf("connections = %d, want the stored 6", reloaded.Connections)
+	}
+}

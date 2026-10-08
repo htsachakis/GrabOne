@@ -204,6 +204,11 @@ export class DownloadList {
           this.stageTicks(job),
         ]),
       );
+      if (job.plainRetry) {
+        // The stage line moves on with the retry's own progress, so the fact
+        // that this is a second attempt is kept on a line of its own.
+        body.push(el("p", { className: "hint", text: "Retrying without speed settings." }));
+      }
       body.push(
         el("div", { className: "download-actions" }, [
           el("button", {
@@ -213,6 +218,18 @@ export class DownloadList {
             on: { click: () => this.handlers.onCancel(job.id) },
           }),
         ]),
+      );
+    }
+
+    if (job.plainRetry && (job.status === "completed" || job.status === "failed")) {
+      body.push(
+        el("p", {
+          className: "hint",
+          text:
+            job.status === "completed"
+              ? "The first attempt failed, so this was downloaded without the speed settings. Your settings were not changed."
+              : "The first attempt failed, and so did a second one without the speed settings.",
+        }),
       );
     }
 

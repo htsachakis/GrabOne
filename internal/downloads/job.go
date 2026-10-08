@@ -27,6 +27,10 @@ type Job struct {
 
 	progress Progress
 
+	// plainRetry records that the first attempt failed and the job is being, or
+	// was, tried again without the speed settings.
+	plainRetry bool
+
 	finalPath   string
 	fileSummary *ffmpeg.FileSummary
 	failure     *ytdlp.Error
@@ -111,6 +115,33 @@ func (j *Job) markRunning() bool {
 	j.startedAt = time.Now()
 	j.progress.Status = string(StatusRunning)
 	return true
+}
+
+// plainRetryMessage is what a job says between its failed first attempt and the
+// first report from the retry.
+const plainRetryMessage = "Retrying without speed settings"
+
+// beginPlainRetry turns a running job over to its second attempt. It stays the
+// same job in the same slot: only the options, the command and the progress
+// start again, because nothing the first attempt reported still holds.
+func (j *Job) beginPlainRetry(options ytdlp.DownloadOptions, command string) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	j.options = options
+	j.command = command
+	j.plainRetry = true
+
+	j.stage = ytdlp.StageStarting
+	j.completedStages = []string{}
+	j.finalPath = ""
+	j.progress = Progress{
+		DownloadID:      j.id,
+		Status:          string(j.status),
+		Stage:           j.stage,
+		CompletedStages: []string{},
+		Message:         plainRetryMessage,
+	}
 }
 
 // applyProgress merges an update into the job's state and returns the resulting
@@ -233,6 +264,7 @@ func (j *Job) View() View {
 		OutputDirectory: j.options.OutputDirectory,
 		FinalPath:       j.finalPath,
 		Command:         j.command,
+		PlainRetry:      j.plainRetry,
 		Error:           j.failure,
 		FileSummary:     j.fileSummary,
 		CreatedAt:       j.createdAt.Format(time.RFC3339),
