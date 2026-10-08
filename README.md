@@ -170,7 +170,7 @@ ffmpeg -version
 | Tool | Version used |
 | --- | --- |
 | [Go](https://go.dev/dl/) | 1.25 or newer |
-| [Node.js](https://nodejs.org/) | 20 or newer, for the frontend build |
+| [Node.js](https://nodejs.org/) | 22 or newer, for the frontend build |
 | [Wails CLI](https://wails.io/docs/gettingstarted/installation) | v2.14 |
 | WebView2 runtime | Preinstalled on Windows 11; the Wails installer prompts otherwise |
 
