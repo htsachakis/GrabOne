@@ -51,8 +51,8 @@ func ReportingArgs() []string {
 		"--newline",
 		"--no-quiet",
 		"--progress-delta", progressDeltaValue,
-		"--progress-template", "download:" + progressMarker + "%(progress)j",
-		"--progress-template", "postprocess:" + postProcessMarker + "%(progress)j",
+		"--progress-template", "download:"+progressMarker+"%(progress)j",
+		"--progress-template", "postprocess:"+postProcessMarker+"%(progress)j",
 		"--print", "after_move:"+destinationMarker+"%(filepath)s",
 		"--no-simulate",
 	)
