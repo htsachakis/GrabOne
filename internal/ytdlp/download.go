@@ -97,6 +97,7 @@ func (c *Client) Download(ctx context.Context, options DownloadOptions, onProgre
 		defer waitGroup.Done()
 		scanner := bufio.NewScanner(reader)
 		scanner.Buffer(make([]byte, 0, 64<<10), maxLineSize)
+		scanner.Split(splitOutputLines)
 		for scanner.Scan() {
 			line := scanner.Text()
 			if capture {

@@ -152,6 +152,7 @@ func (a *App) refreshDependencies(ctx context.Context) dependencies.Set {
 		YtDlp:   settings.YtDlpPath,
 		FFmpeg:  settings.FFmpegPath,
 		FFprobe: settings.FFprobePath,
+		Aria2c:  settings.Aria2cPath,
 	})
 
 	client := ytdlp.NewClient(set.YtDlp.Path, set.FFmpeg.Path, a.logger)
@@ -183,7 +184,7 @@ func (a *App) refreshDependencies(ctx context.Context) dependencies.Set {
 // probes it again. Dependencies are never downloaded automatically.
 func (a *App) LocateDependency(name string) SettingsResponse {
 	switch name {
-	case dependencies.YtDlp, dependencies.FFmpeg, dependencies.FFprobe:
+	case dependencies.YtDlp, dependencies.FFmpeg, dependencies.FFprobe, dependencies.Aria2c:
 	default:
 		return SettingsResponse{Settings: a.store.Get(), Dependencies: a.GetDependencies(), Error: "unknown dependency " + name}
 	}
@@ -211,6 +212,8 @@ func (a *App) LocateDependency(name string) SettingsResponse {
 			cfg.FFmpegPath = selected
 		case dependencies.FFprobe:
 			cfg.FFprobePath = selected
+		case dependencies.Aria2c:
+			cfg.Aria2cPath = selected
 		}
 	})
 
@@ -255,7 +258,8 @@ func (a *App) SaveSettings(settings config.Config) SettingsResponse {
 func pathsChanged(previous, current config.Config) bool {
 	return previous.YtDlpPath != current.YtDlpPath ||
 		previous.FFmpegPath != current.FFmpegPath ||
-		previous.FFprobePath != current.FFprobePath
+		previous.FFprobePath != current.FFprobePath ||
+		previous.Aria2cPath != current.Aria2cPath
 }
 
 // ChooseOutputDirectory opens the native folder picker.
@@ -521,8 +525,10 @@ func (a *App) buildOptions(request DownloadRequest) (ytdlp.DownloadOptions, *ytd
 		PlaylistItems:  request.PlaylistItems,
 
 		Cookies: cookieOptions(settings),
-		Speed:   speedOptions(settings),
 	}
+
+	_, set := a.currentClient()
+	options.Speed = speedOptions(settings, set.Aria2c)
 
 	a.applyAnalysisContext(&options)
 
@@ -746,11 +752,24 @@ func cookieOptions(settings config.Config) ytdlp.CookieOptions {
 // speedOptions maps the stored speed settings onto the engine options. They are
 // read when the download is built, so a job keeps the values it was started
 // with however the settings change afterwards.
-func speedOptions(settings config.Config) ytdlp.SpeedOptions {
-	return ytdlp.SpeedOptions{
+//
+// aria2c is an extra the user switched on, and it only has work to do with more
+// than one connection. When it was asked for and is not there, the download
+// goes ahead without it and records why: a missing extra never costs the
+// download.
+func speedOptions(settings config.Config, aria2c dependencies.DependencyStatus) ytdlp.SpeedOptions {
+	speed := ytdlp.SpeedOptions{
 		Connections:     settings.Connections,
 		ChunkedTransfer: settings.ChunkedTransfer,
 	}
+	if settings.UseAria2c && settings.Connections > 1 {
+		if aria2c.Available {
+			speed.Aria2cPath = aria2c.Path
+		} else {
+			speed.Aria2cMissing = true
+		}
+	}
+	return speed
 }
 
 // selectionDefaults chooses the starting selection from the analysis, so the

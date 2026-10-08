@@ -70,7 +70,48 @@ func (c *Client) DownloadVerified(
 	if err != nil {
 		return "", err
 	}
+	return c.fetchExpecting(ctx, asset, expected, "the checksum published with the release", directory, onProgress)
+}
 
+// DownloadPinned fetches an asset into directory and checks it against a
+// checksum the caller already holds.
+//
+// This is for a project that publishes no checksums. The caller names one exact
+// file and carries its SHA-256 itself, so the download is accepted only if it
+// is that file, whatever the release serves under the name.
+func (c *Client) DownloadPinned(
+	ctx context.Context,
+	asset *Asset,
+	sha256Sum string,
+	directory string,
+	onProgress func(Progress),
+) (string, error) {
+	if asset == nil {
+		return "", fmt.Errorf("no file was named to download")
+	}
+	if !isHexSum(sha256Sum) {
+		return "", fmt.Errorf("no usable checksum is known for %s, so the download cannot be verified", asset.Name)
+	}
+	if err := c.ValidateURL(asset.URL); err != nil {
+		return "", err
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, downloadTimeout)
+	defer cancel()
+
+	return c.fetchExpecting(ctx, asset, sha256Sum, "the checksum GrabOne expects for it", directory, onProgress)
+}
+
+// fetchExpecting downloads an asset and keeps it only if its SHA-256 is the
+// expected one. origin says where that checksum came from, for the error.
+func (c *Client) fetchExpecting(
+	ctx context.Context,
+	asset *Asset,
+	expected string,
+	origin string,
+	directory string,
+	onProgress func(Progress),
+) (string, error) {
 	if err := os.MkdirAll(directory, 0o755); err != nil {
 		return "", fmt.Errorf("prepare the download folder: %w", err)
 	}
@@ -87,7 +128,7 @@ func (c *Client) DownloadVerified(
 
 	if !strings.EqualFold(sum, expected) {
 		_ = os.Remove(partial)
-		return "", fmt.Errorf("%s does not match the checksum published with the release, so it was discarded", asset.Name)
+		return "", fmt.Errorf("%s does not match %s, so it was discarded", asset.Name, origin)
 	}
 
 	if err := os.Rename(partial, target); err != nil {

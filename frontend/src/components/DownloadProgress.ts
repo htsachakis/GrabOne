@@ -221,6 +221,18 @@ export class DownloadList {
       );
     }
 
+    if (job.aria2cMissing && !job.plainRetry && job.status !== "cancelled") {
+      body.push(
+        el("p", {
+          className: "hint",
+          text:
+            job.status === "queued" || job.status === "running"
+              ? "aria2c was not found, so this download runs without it."
+              : "aria2c was not found, so this download ran without it.",
+        }),
+      );
+    }
+
     if (job.plainRetry && (job.status === "completed" || job.status === "failed")) {
       body.push(
         el("p", {

@@ -34,6 +34,21 @@ func extractFFmpeg(downloaded, directory string) ([]string, error) {
 	return extracted, nil
 }
 
+// extractAria2c pulls aria2c.exe out of a downloaded aria2 archive and removes
+// the archive afterwards.
+func extractAria2c(downloaded, directory string) ([]string, error) {
+	extracted, err := ExtractFromZip(downloaded, directory, []string{"aria2c.exe"})
+	if err != nil {
+		return nil, err
+	}
+	if len(extracted) == 0 {
+		return nil, fmt.Errorf("the downloaded archive did not contain aria2c.exe")
+	}
+
+	_ = os.Remove(downloaded)
+	return extracted, nil
+}
+
 // ExtractFromZip copies the named files out of an archive into directory,
 // ignoring the folder structure inside it.
 //

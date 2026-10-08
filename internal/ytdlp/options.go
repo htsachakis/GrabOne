@@ -136,6 +136,18 @@ type SpeedOptions struct {
 	// ChunkedTransfer asks for a single-file stream in pieces, which gets past
 	// some servers that slow a long request down.
 	ChunkedTransfer bool `json:"chunkedTransfer"`
+	// Aria2cPath is the aria2c executable that fetches a single-file stream
+	// over several connections. Empty means yt-dlp fetches it itself, over one.
+	Aria2cPath string `json:"aria2cPath"`
+	// Aria2cMissing records that the user asked for aria2c and it was not
+	// found, so the download goes ahead without it and can say why.
+	Aria2cMissing bool `json:"aria2cMissing"`
+}
+
+// usesAria2c reports whether aria2c takes the single-file streams. With one
+// connection it would do what yt-dlp does, and report its progress less well.
+func (s SpeedOptions) usesAria2c() bool {
+	return s.Connections > 1 && strings.TrimSpace(s.Aria2cPath) != ""
 }
 
 // Active reports whether the settings change the transfer at all.
@@ -151,6 +163,18 @@ func (s SpeedOptions) Args() []string {
 	}
 	if s.ChunkedTransfer {
 		args = append(args, "--http-chunk-size", chunkSize)
+	}
+	if s.usesAria2c() {
+		connections := strconv.Itoa(s.Connections)
+		args = append(args,
+			// Naming the protocols keeps aria2c to single-file streams. A stream
+			// delivered in fragments stays with yt-dlp, which reports its
+			// progress and already fetches the fragments side by side.
+			"--downloader", "http,ftp:"+s.Aria2cPath,
+			// --human-readable=false makes the status line carry exact byte
+			// counts, which is what the progress is read from.
+			"--downloader-args", "aria2c:-x "+connections+" -s "+connections+" --human-readable=false",
+		)
 	}
 	return args
 }

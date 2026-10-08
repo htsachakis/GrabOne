@@ -157,6 +157,8 @@ export interface DependencySet {
   ytDlp: DependencyStatus;
   ffmpeg: DependencyStatus;
   ffprobe: DependencyStatus;
+  /** aria2c is an optional extra, used only for speed. */
+  aria2c: DependencyStatus;
 }
 
 export interface InstallStep {
@@ -180,6 +182,8 @@ export interface ToolSource {
   projectUrl: string;
   licence: string;
   provides: string[];
+  /** pinnedVersion is set for a tool downloaded as one fixed version. */
+  pinnedVersion: string;
 }
 
 export interface ToolProgress {
@@ -236,13 +240,15 @@ export interface Settings {
   ytDlpPath: string;
   ffmpegPath: string;
   ffprobePath: string;
+  aria2cPath: string;
   outputDirectory: string;
   filenameTemplate: string;
   theme: string;
   maxConcurrentDownloads: number;
-  /** connections and chunkedTransfer are the speed settings. */
+  /** connections, chunkedTransfer and useAria2c are the speed settings. */
   connections: number;
   chunkedTransfer: boolean;
+  useAria2c: boolean;
   autoCheckUpdates: boolean;
   skippedUpdateVersion: string;
   cookieSource: string;
@@ -374,6 +380,8 @@ export interface DownloadView {
   queuePosition: number;
   /** plainRetry is set once the job was tried again without the speed settings. */
   plainRetry: boolean;
+  /** aria2cMissing is set when the job was meant to use aria2c and it was not found. */
+  aria2cMissing: boolean;
 }
 
 /** QueueOrder is the queue event: the waiting jobs in the order they will start. */

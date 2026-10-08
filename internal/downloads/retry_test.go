@@ -272,3 +272,15 @@ func TestOnlyTransferFailuresEarnAPlainRetry(t *testing.T) {
 		t.Error("a download that did not fail earned a retry")
 	}
 }
+
+func TestJobSaysWhenAria2cWasAskedForAndNotFound(t *testing.T) {
+	options := speedyOptions()
+	options.Speed.Aria2cMissing = true
+
+	if view := newJob("job-7", options, Metadata{}, "").View(); !view.Aria2cMissing {
+		t.Error("the job should say aria2c was not found")
+	}
+	if view := newJob("job-8", speedyOptions(), Metadata{}, "").View(); view.Aria2cMissing {
+		t.Error("a job that never asked for aria2c reports it missing")
+	}
+}

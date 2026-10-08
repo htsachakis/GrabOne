@@ -265,6 +265,7 @@ func (j *Job) View() View {
 		FinalPath:       j.finalPath,
 		Command:         j.command,
 		PlainRetry:      j.plainRetry,
+		Aria2cMissing:   j.options.Speed.Aria2cMissing,
 		Error:           j.failure,
 		FileSummary:     j.fileSummary,
 		CreatedAt:       j.createdAt.Format(time.RFC3339),

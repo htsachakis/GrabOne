@@ -28,7 +28,9 @@ export interface DependencyStatusHandlers {
 
 /**
  * DependencyStatus shows whether yt-dlp, FFmpeg and FFprobe were found, with
- * their versions and where they came from.
+ * their versions and where they came from. The detailed list in Settings also
+ * shows aria2c, which is an optional extra: its absence is not a problem, so it
+ * stays off the main screen and is never drawn as a warning.
  *
  * Availability is reported by the backend only after running each executable,
  * so a present but unusable binary shows as unavailable rather than as ready.
@@ -121,6 +123,7 @@ export class DependencyStatus {
     }
 
     const statuses = [dependencies.ytDlp, dependencies.ffmpeg, dependencies.ffprobe];
+    if (this.detailed && dependencies.aria2c?.name) statuses.push(dependencies.aria2c);
     replace(
       this.list,
       statuses.map((status) => this.row(status)),
@@ -143,19 +146,29 @@ export class DependencyStatus {
   }
 
   private row(status: Status): HTMLElement {
+    // Nothing is lost without an optional extra, so a missing one is not marked
+    // as something to fix.
+    const optionalExtra = status.name === "aria2c";
+
     const marker = status.available
       ? el("span", { className: "status-marker ok", text: "✓", attrs: { "aria-hidden": "true" } })
-      : el("span", {
-          className: `status-marker ${status.required ? "bad" : "warn"}`,
-          text: status.required ? "✕" : "⚠",
-          attrs: { "aria-hidden": "true" },
-        });
+      : optionalExtra
+        ? el("span", { className: "status-marker", text: "–", attrs: { "aria-hidden": "true" } })
+        : el("span", {
+            className: `status-marker ${status.required ? "bad" : "warn"}`,
+            text: status.required ? "✕" : "⚠",
+            attrs: { "aria-hidden": "true" },
+          });
 
     const details: (HTMLElement | false)[] = [
       el("span", { className: "dependency-name", text: status.displayName }),
       el("span", {
         className: "dependency-version",
-        text: status.available ? status.version || "version unknown" : "not found",
+        text: status.available
+          ? status.version || "version unknown"
+          : optionalExtra
+            ? "not installed (optional)"
+            : "not found",
       }),
     ];
 
@@ -196,13 +209,16 @@ export class DependencyStatus {
         el("button", {
           className: "button primary small",
           text: "Download",
-          title: `Downloads ${source.displayName} from its official release and verifies the published checksum`,
+          title: source.pinnedVersion
+            ? `Downloads ${source.displayName} ${source.pinnedVersion} from its official release and verifies it against the checksum built into GrabOne`
+            : `Downloads ${source.displayName} from its official release and verifies the published checksum`,
           attrs: { type: "button" },
           on: { click: () => this.handlers.onInstallTool(source.name) },
         }),
       );
     }
-    if (status.available && status.managed && source && !busy) {
+    // A pinned tool is one fixed version, so there is nothing newer to fetch.
+    if (status.available && status.managed && source && !source.pinnedVersion && !busy) {
       actions.push(
         el("button", {
           className: "button subtle small",

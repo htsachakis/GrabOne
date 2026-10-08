@@ -120,6 +120,15 @@ func (p *ProgressParser) Parse(line string) (ProgressUpdate, bool) {
 		return ProgressUpdate{}, false
 	}
 
+	if status, rest, ok := cutAria2cStatus(trimmed); ok {
+		// A line stuck behind the status line is newer than the status line,
+		// and it is the one that says the file is finished.
+		if strings.TrimSpace(rest) != "" {
+			return p.Parse(rest)
+		}
+		return p.parseAria2cStatus(status), true
+	}
+
 	switch {
 	case strings.HasPrefix(trimmed, progressMarker):
 		return p.parseDownload(strings.TrimPrefix(trimmed, progressMarker))

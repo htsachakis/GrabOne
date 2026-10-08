@@ -34,6 +34,7 @@ const (
 	ffmpegBuildsURL    = "https://www.gyan.dev/ffmpeg/builds/"
 	ffmpegDownloadURL  = "https://ffmpeg.org/download.html"
 	wingetLearnMoreURL = "https://learn.microsoft.com/windows/package-manager/winget/"
+	aria2ReleasesURL   = "https://github.com/aria2/aria2/releases/latest"
 )
 
 // GuidanceFor returns the installation help for one dependency. applicationDir
@@ -97,6 +98,31 @@ func GuidanceFor(name, applicationDir string) Guidance {
 			AfterInstall: "Then press Retry. If you installed while GrabOne was open, Retry is all that is needed.",
 		}
 
+	case Aria2c:
+		return Guidance{
+			Name:        Aria2c,
+			DisplayName: DisplayName(Aria2c),
+			Summary:     "aria2c is optional. It downloads a single-file stream over several connections at once, which helps on sites that slow each connection down. Everything else works without it.",
+			Steps: []InstallStep{
+				{
+					Title:   "Install with winget",
+					Command: "winget install aria2.aria2",
+					Detail:  "Paste this into PowerShell.",
+				},
+				{
+					Title:   "Or install with Scoop or Chocolatey",
+					Command: "scoop install aria2",
+					Detail:  "Chocolatey users can run choco install aria2 instead.",
+				},
+				{
+					Title:  "Or download the executable",
+					URL:    aria2ReleasesURL,
+					Detail: "Take the win-64bit archive from the latest release and copy aria2c.exe into " + folder + ", or anywhere on your PATH.",
+				},
+			},
+			AfterInstall: "Then press Retry, and switch it on under Settings › Speed.",
+		}
+
 	default:
 		return Guidance{Name: name, DisplayName: DisplayName(name)}
 	}
@@ -108,6 +134,7 @@ func AllGuidance(applicationDir string) []Guidance {
 		GuidanceFor(YtDlp, applicationDir),
 		GuidanceFor(FFmpeg, applicationDir),
 		GuidanceFor(FFprobe, applicationDir),
+		GuidanceFor(Aria2c, applicationDir),
 	}
 }
 
@@ -116,7 +143,7 @@ func AllGuidance(applicationDir string) []Guidance {
 // way to open an arbitrary address.
 func IsKnownHelpURL(url string) bool {
 	switch url {
-	case ytDlpReleasesURL, ytDlpHomeURL, ffmpegBuildsURL, ffmpegDownloadURL, wingetLearnMoreURL:
+	case ytDlpReleasesURL, ytDlpHomeURL, ffmpegBuildsURL, ffmpegDownloadURL, wingetLearnMoreURL, aria2ReleasesURL:
 		return true
 	default:
 		return false

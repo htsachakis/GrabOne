@@ -9,6 +9,9 @@ const (
 	YtDlp   = "yt-dlp"
 	FFmpeg  = "ffmpeg"
 	FFprobe = "ffprobe"
+	// Aria2c is an optional extra: it fetches a single-file stream over
+	// several connections, which yt-dlp cannot do itself.
+	Aria2c = "aria2c"
 )
 
 // Source describes where an executable was found, which is what the settings
@@ -45,16 +48,17 @@ type Set struct {
 	YtDlp   DependencyStatus `json:"ytDlp"`
 	FFmpeg  DependencyStatus `json:"ffmpeg"`
 	FFprobe DependencyStatus `json:"ffprobe"`
+	Aria2c  DependencyStatus `json:"aria2c"`
 }
 
 // All returns the statuses in display order.
 func (s Set) All() []DependencyStatus {
-	return []DependencyStatus{s.YtDlp, s.FFmpeg, s.FFprobe}
+	return []DependencyStatus{s.YtDlp, s.FFmpeg, s.FFprobe, s.Aria2c}
 }
 
 // Ready reports whether the application can analyze and download. yt-dlp is
-// mandatory; FFmpeg is needed for merging, remuxing and conversion, and
-// FFprobe only for inspecting finished files.
+// mandatory; FFmpeg is needed for merging, remuxing and conversion, FFprobe
+// only for inspecting finished files, and aria2c only for speed.
 func (s Set) Ready() bool { return s.YtDlp.Available }
 
 // CanMerge reports whether separate video and audio streams can be combined.
@@ -69,6 +73,8 @@ func DisplayName(name string) string {
 		return "FFmpeg"
 	case FFprobe:
 		return "FFprobe"
+	case Aria2c:
+		return "aria2c"
 	default:
 		return name
 	}

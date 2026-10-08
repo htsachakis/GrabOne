@@ -46,8 +46,9 @@ and gains new sites whenever yt-dlp is updated.
   download can be moved up, down or to the front of the queue; a running one is
   never interrupted by a move.
 - **Speed settings.** For sites that slow each connection down: fetch up to 16
-  pieces of one download at once, and ask for single-file streams in chunks. A
-  download that fails with them is tried once more without them.
+  pieces of one download at once, ask for single-file streams in chunks, or hand
+  them to aria2c to fetch over several connections. A download that fails with
+  them is tried once more without them.
 - **The effective command.** The Advanced section shows the exact yt-dlp command
   your selection produces, ready to copy.
 - **Updates.** GrabOne checks GitHub for a newer release, shows what changed, and
@@ -107,6 +108,7 @@ covers and where to find it.
 | [yt-dlp](https://github.com/yt-dlp/yt-dlp/releases) | Required. Analysis and downloading |
 | [FFmpeg](https://www.gyan.dev/ffmpeg/builds/) | Needed for merging, remuxing, conversion and embedding |
 | FFprobe | Ships with FFmpeg. Used to report what the finished file contains |
+| [aria2c](https://github.com/aria2/aria2/releases) | Optional. Fetches a single-file stream over several connections, when switched on in Settings › Speed |
 
 GrabOne does not bundle these tools, so you can update them whenever you like
 without touching the application. It looks for each one in this order:
@@ -130,6 +132,11 @@ it in the folder above. Nothing is downloaded until you press it.
 | --- | --- | --- |
 | yt-dlp | [yt-dlp/yt-dlp](https://github.com/yt-dlp/yt-dlp) releases, verified with `SHA2-256SUMS` | Unlicense |
 | FFmpeg + FFprobe | [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds) releases, verified with `checksums.sha256` | GPL |
+| aria2c | [aria2/aria2](https://github.com/aria2/aria2) release 1.37.0, verified with a SHA-256 built into GrabOne | GPL |
+
+aria2 publishes no checksums, so GrabOne downloads one fixed version of it and
+checks it against a value it carries itself. That version changes only with a
+new version of GrabOne, so a copy GrabOne downloaded has no Update button.
 
 A copy GrabOne downloaded gets an **Update** button in Settings, which re-fetches
 the latest release — useful because extraction usually breaks when yt-dlp falls

@@ -60,6 +60,7 @@ type Config struct {
 	YtDlpPath   string `json:"ytDlpPath"`
 	FFmpegPath  string `json:"ffmpegPath"`
 	FFprobePath string `json:"ffprobePath"`
+	Aria2cPath  string `json:"aria2cPath"`
 
 	OutputDirectory  string `json:"outputDirectory"`
 	FilenameTemplate string `json:"filenameTemplate"`
@@ -68,10 +69,12 @@ type Config struct {
 
 	MaxConcurrentDownloads int `json:"maxConcurrentDownloads"`
 
-	// Connections and ChunkedTransfer are the speed settings: they change how
-	// fast a job fetches its media, never what is saved.
+	// Connections, ChunkedTransfer and UseAria2c are the speed settings: they
+	// change how fast a job fetches its media, never what is saved.
 	Connections     int  `json:"connections"`
 	ChunkedTransfer bool `json:"chunkedTransfer"`
+	// UseAria2c hands single-file streams to aria2c, when it is installed.
+	UseAria2c bool `json:"useAria2c"`
 
 	// AutoCheckUpdates asks GitHub for a newer release shortly after startup.
 	AutoCheckUpdates bool `json:"autoCheckUpdates"`
@@ -93,7 +96,6 @@ func Default() Config {
 		Theme:                  ThemeDark,
 		MaxConcurrentDownloads: 1,
 		Connections:            1,
-		ChunkedTransfer:        true,
 		AutoCheckUpdates:       true,
 		CookieSource:           CookieSourceNone,
 		Preferences: Preferences{

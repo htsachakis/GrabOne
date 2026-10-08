@@ -27,8 +27,8 @@ func TestSetReadiness(t *testing.T) {
 	if set.CanMerge() {
 		t.Error("merging is not possible without FFmpeg")
 	}
-	if len(set.All()) != 3 {
-		t.Errorf("All() returned %d statuses, want 3", len(set.All()))
+	if len(set.All()) != 4 {
+		t.Errorf("All() returned %d statuses, want 4", len(set.All()))
 	}
 
 	missing := Set{YtDlp: DependencyStatus{Name: YtDlp, Available: false}}
@@ -139,5 +139,100 @@ func TestDetectOneRunsTheExecutable(t *testing.T) {
 	}
 	if runtime.GOOS == "windows" && status.Error == "" {
 		t.Error("the failure to run should be recorded")
+	}
+}
+
+func TestAria2cIsAnOptionalExtra(t *testing.T) {
+	if DisplayName(Aria2c) != "aria2c" {
+		t.Errorf("display name = %q, want aria2c", DisplayName(Aria2c))
+	}
+
+	// Nothing but aria2c is missing here, and the application is as ready as it
+	// is with it: aria2c only makes some downloads faster.
+	set := Set{
+		YtDlp:  DependencyStatus{Name: YtDlp, Available: true},
+		FFmpeg: DependencyStatus{Name: FFmpeg, Available: true},
+	}
+	if !set.Ready() || !set.CanMerge() {
+		t.Error("a missing aria2c must not hold anything back")
+	}
+}
+
+func TestDetectLooksForAria2c(t *testing.T) {
+	managed := t.TempDir()
+	detector := NewDetector(t.TempDir(), managed)
+
+	missing := detector.Detect(context.Background(), Paths{
+		YtDlp:   filepath.Join(t.TempDir(), "nothing-here.exe"),
+		FFmpeg:  filepath.Join(t.TempDir(), "nothing-here.exe"),
+		FFprobe: filepath.Join(t.TempDir(), "nothing-here.exe"),
+		Aria2c:  filepath.Join(t.TempDir(), "nothing-here.exe"),
+	})
+	if missing.Aria2c.Name != Aria2c {
+		t.Fatalf("aria2c status = %+v, want it probed under its own name", missing.Aria2c)
+	}
+	if missing.Aria2c.Available || missing.Aria2c.Source != SourceNotFound {
+		t.Errorf("aria2c status = %+v, want it reported as not found", missing.Aria2c)
+	}
+	if missing.Aria2c.Required {
+		t.Error("aria2c is optional")
+	}
+
+	found := false
+	for _, status := range missing.All() {
+		if status.Name == Aria2c {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("aria2c is missing from the list of statuses")
+	}
+
+	// A copy in the folder GrabOne manages is the one that is found.
+	copy := filepath.Join(managed, executableName(Aria2c))
+	if err := os.WriteFile(copy, []byte("binary"), 0o755); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	path, source, err := detector.resolve(Aria2c, "")
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if path != copy || source != SourceManaged {
+		t.Errorf("resolved %q via %q, want the managed copy", path, source)
+	}
+}
+
+func TestParseAria2cVersion(t *testing.T) {
+	// The first lines of the real "aria2c --version" output.
+	output := "aria2 version 1.37.0\nCopyright (C) 2006, 2019 Tatsuhiro Tsujikawa\n"
+
+	if got := parseAria2cVersion(output); got != "1.37.0" {
+		t.Errorf("version = %q, want 1.37.0", got)
+	}
+	if got := parseAria2cVersion("something else entirely\n"); got != "something else entirely" {
+		t.Errorf("version = %q, want unexpected output kept as it is", got)
+	}
+}
+
+func TestAria2cGuidanceSaysItIsOptional(t *testing.T) {
+	guidance := GuidanceFor(Aria2c, `C:\Apps\GrabOne`)
+
+	if guidance.Name != Aria2c || guidance.Summary == "" || len(guidance.Steps) == 0 {
+		t.Fatalf("guidance = %+v, want a summary and at least one way to install it", guidance)
+	}
+	for _, step := range guidance.Steps {
+		if step.URL != "" && !IsKnownHelpURL(step.URL) {
+			t.Errorf("step %q links to %s, which the application would refuse to open", step.Title, step.URL)
+		}
+	}
+
+	listed := false
+	for _, entry := range AllGuidance("") {
+		if entry.Name == Aria2c {
+			listed = true
+		}
+	}
+	if !listed {
+		t.Error("aria2c is missing from the install guidance")
 	}
 }

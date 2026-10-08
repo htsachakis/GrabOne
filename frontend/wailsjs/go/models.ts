@@ -42,12 +42,14 @@ export namespace config {
 	    ytDlpPath: string;
 	    ffmpegPath: string;
 	    ffprobePath: string;
+	    aria2cPath: string;
 	    outputDirectory: string;
 	    filenameTemplate: string;
 	    theme: string;
 	    maxConcurrentDownloads: number;
 	    connections: number;
 	    chunkedTransfer: boolean;
+	    useAria2c: boolean;
 	    autoCheckUpdates: boolean;
 	    skippedUpdateVersion: string;
 	    cookieSource: string;
@@ -64,12 +66,14 @@ export namespace config {
 	        this.ytDlpPath = source["ytDlpPath"];
 	        this.ffmpegPath = source["ffmpegPath"];
 	        this.ffprobePath = source["ffprobePath"];
+	        this.aria2cPath = source["aria2cPath"];
 	        this.outputDirectory = source["outputDirectory"];
 	        this.filenameTemplate = source["filenameTemplate"];
 	        this.theme = source["theme"];
 	        this.maxConcurrentDownloads = source["maxConcurrentDownloads"];
 	        this.connections = source["connections"];
 	        this.chunkedTransfer = source["chunkedTransfer"];
+	        this.useAria2c = source["useAria2c"];
 	        this.autoCheckUpdates = source["autoCheckUpdates"];
 	        this.skippedUpdateVersion = source["skippedUpdateVersion"];
 	        this.cookieSource = source["cookieSource"];
@@ -190,6 +194,7 @@ export namespace dependencies {
 	    ytDlp: DependencyStatus;
 	    ffmpeg: DependencyStatus;
 	    ffprobe: DependencyStatus;
+	    aria2c: DependencyStatus;
 	
 	    static createFrom(source: any = {}) {
 	        return new Set(source);
@@ -200,6 +205,7 @@ export namespace dependencies {
 	        this.ytDlp = this.convertValues(source["ytDlp"], DependencyStatus);
 	        this.ffmpeg = this.convertValues(source["ffmpeg"], DependencyStatus);
 	        this.ffprobe = this.convertValues(source["ffprobe"], DependencyStatus);
+	        this.aria2c = this.convertValues(source["aria2c"], DependencyStatus);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -310,6 +316,7 @@ export namespace downloads {
 	    finishedAt?: string;
 	    queuePosition: number;
 	    plainRetry: boolean;
+	    aria2cMissing: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new View(source);
@@ -335,6 +342,7 @@ export namespace downloads {
 	        this.finishedAt = source["finishedAt"];
 	        this.queuePosition = source["queuePosition"];
 	        this.plainRetry = source["plainRetry"];
+	        this.aria2cMissing = source["aria2cMissing"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -731,6 +739,7 @@ export namespace main {
 	    projectUrl: string;
 	    licence: string;
 	    provides: string[];
+	    pinnedVersion: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ToolSource(source);
@@ -743,6 +752,7 @@ export namespace main {
 	        this.projectUrl = source["projectUrl"];
 	        this.licence = source["licence"];
 	        this.provides = source["provides"];
+	        this.pinnedVersion = source["pinnedVersion"];
 	    }
 	}
 	export class UpdateStatus {

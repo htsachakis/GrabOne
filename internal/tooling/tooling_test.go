@@ -264,3 +264,84 @@ func TestInstallRefusesAnUnknownTool(t *testing.T) {
 		t.Error("only the known tools may be downloaded")
 	}
 }
+
+func TestAria2cIsPinnedToOneVerifiedFile(t *testing.T) {
+	source, ok := SourceFor(dependencies.Aria2c)
+	if !ok {
+		t.Fatal("aria2c has no download source")
+	}
+	if source.Licence == "" || source.ProjectURL == "" || source.Extract == nil {
+		t.Errorf("aria2c has an incomplete source: %+v", source)
+	}
+
+	// aria2 publishes no checksums, so there is no checksum asset to trust. The
+	// file is named exactly and its SHA-256 is carried in the application.
+	pinned := source.Pinned
+	if pinned == nil {
+		t.Fatal("aria2c must be pinned: its releases publish nothing to verify a download against")
+	}
+	if len(pinned.SHA256) != 64 || strings.Trim(strings.ToLower(pinned.SHA256), "0123456789abcdef") != "" {
+		t.Errorf("checksum = %q, want a SHA-256", pinned.SHA256)
+	}
+	if pinned.Version == "" || pinned.Size <= 0 {
+		t.Errorf("pinned = %+v, want the version and size recorded", pinned)
+	}
+	if !strings.Contains(pinned.URL, pinned.Version) || !strings.HasSuffix(pinned.URL, "/"+pinned.Name) {
+		t.Errorf("address %s does not name version %s and file %s", pinned.URL, pinned.Version, pinned.Name)
+	}
+	if err := ghrelease.NewClient("test").ValidateURL(pinned.URL); err != nil {
+		t.Errorf("the pinned address would be refused: %v", err)
+	}
+}
+
+func TestOnlyPinnedSourcesGoWithoutAPublishedChecksum(t *testing.T) {
+	for _, source := range Sources() {
+		if source.Pinned == nil && (source.Asset == nil || source.ChecksumAsset == nil) {
+			t.Errorf("%s is neither pinned nor verified against a published checksum", source.DisplayName)
+		}
+	}
+}
+
+func TestExtractAria2cTakesOnlyTheExecutable(t *testing.T) {
+	directory := t.TempDir()
+	archive := filepath.Join(directory, "aria2-1.37.0-win-64bit-build1.zip")
+	buildZip(t, archive, map[string]string{
+		"aria2-1.37.0-win-64bit-build1/aria2c.exe":  "aria2c",
+		"aria2-1.37.0-win-64bit-build1/README.html": "readme",
+		"aria2-1.37.0-win-64bit-build1/COPYING":     "licence",
+	})
+
+	extracted, err := extractAria2c(archive, directory)
+	if err != nil {
+		t.Fatalf("extract: %v", err)
+	}
+	if want := []string{filepath.Join(directory, "aria2c.exe")}; len(extracted) != 1 || extracted[0] != want[0] {
+		t.Errorf("extracted = %v, want %v", extracted, want)
+	}
+
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		t.Fatalf("read the folder: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("the folder holds %d entries, want only aria2c.exe with the archive removed", len(entries))
+	}
+
+	empty := filepath.Join(t.TempDir(), "empty.zip")
+	buildZip(t, empty, map[string]string{"README.html": "readme"})
+	if _, err := extractAria2c(empty, t.TempDir()); err == nil {
+		t.Error("an archive without aria2c.exe should be reported")
+	}
+}
+
+func TestInstalledListsAria2c(t *testing.T) {
+	directory := t.TempDir()
+	path := filepath.Join(directory, executableName(dependencies.Aria2c))
+	if err := os.WriteFile(path, []byte("binary"), 0o755); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	if installed := NewInstaller(directory, "test").Installed(); installed[dependencies.Aria2c] != path {
+		t.Errorf("installed = %v, want aria2c at %q", installed, path)
+	}
+}

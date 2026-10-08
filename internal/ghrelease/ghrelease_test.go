@@ -331,3 +331,62 @@ func TestDownloadedFileLandsInTheChosenFolder(t *testing.T) {
 		t.Errorf("path = %q, want it inside %q", path, directory)
 	}
 }
+
+func TestDownloadPinnedAcceptsTheExactFile(t *testing.T) {
+	payload := []byte("this stands in for an archive whose project publishes no checksums")
+	sum := sha256.Sum256(payload)
+	server := assetServer(t, payload, "")
+
+	client, asset, _ := localClient(server)
+	asset.Size = int64(len(payload))
+
+	// The checksum is written in upper case, the way some sources record it.
+	pinned := strings.ToUpper(hex.EncodeToString(sum[:]))
+
+	path, err := client.DownloadPinned(context.Background(), asset, pinned, t.TempDir(), nil)
+	if err != nil {
+		t.Fatalf("download: %v", err)
+	}
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if string(contents) != string(payload) {
+		t.Error("the stored file does not match what was served")
+	}
+}
+
+func TestDownloadPinnedRejectsAnyOtherFile(t *testing.T) {
+	expected := sha256.Sum256([]byte("the file this version of the application was built to accept"))
+	server := assetServer(t, []byte("a different file under the same name"), "")
+
+	client, asset, _ := localClient(server)
+	directory := t.TempDir()
+
+	path, err := client.DownloadPinned(context.Background(), asset, hex.EncodeToString(expected[:]), directory, nil)
+	if err == nil {
+		t.Fatal("a file that is not the pinned one must be refused")
+	}
+	if path != "" {
+		t.Errorf("path = %q, want nothing returned for a failed verification", path)
+	}
+
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		t.Fatalf("read the folder: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Errorf("the folder still holds %d file(s); an unverified download must be discarded", len(entries))
+	}
+}
+
+func TestDownloadPinnedNeedsARealChecksum(t *testing.T) {
+	server := assetServer(t, []byte("payload"), "")
+	client, asset, _ := localClient(server)
+
+	for _, pinned := range []string{"", "not-a-checksum", strings.Repeat("a", 63)} {
+		if _, err := client.DownloadPinned(context.Background(), asset, pinned, t.TempDir(), nil); err == nil {
+			t.Errorf("a download pinned to %q must be refused", pinned)
+		}
+	}
+}

@@ -1,6 +1,13 @@
 import { el, replace } from "../dom";
 import type { AppState } from "../state";
-import type { InstallGuidance, Settings, ToolProgress, ToolSource, UpdateStatus } from "../types";
+import type {
+  DependencyStatus as DependencyState,
+  InstallGuidance,
+  Settings,
+  ToolProgress,
+  ToolSource,
+  UpdateStatus,
+} from "../types";
 import { DependencyStatus } from "./DependencyStatus";
 
 export interface SettingsHandlers {
@@ -92,13 +99,20 @@ export class SettingsPanel {
     const settings = state.settings;
     if (!settings) return;
 
-    const signature = JSON.stringify(settings) + String(state.appInfo?.version) + JSON.stringify(this.updateStatus);
+    // The aria2c switch depends on whether aria2c was found, so its status is
+    // part of what the sections are drawn from.
+    const aria2c = state.dependencies?.aria2c ?? null;
+    const signature =
+      JSON.stringify(settings) +
+      String(state.appInfo?.version) +
+      JSON.stringify(this.updateStatus) +
+      JSON.stringify(aria2c);
     if (signature === this.signature) return;
     this.signature = signature;
 
     replace(this.sections, [
       this.downloadsSection(settings),
-      this.speedSection(settings),
+      this.speedSection(settings, aria2c),
       this.authenticationSection(settings),
       this.appearanceSection(settings),
       this.updatesSection(settings),
@@ -178,8 +192,9 @@ export class SettingsPanel {
    * active is tried once more without them, so a setting a site does not accept
    * costs time and not the download.
    */
-  private speedSection(settings: Settings): HTMLElement {
+  private speedSection(settings: Settings, aria2c: DependencyState | null): HTMLElement {
     const counts = Array.from({ length: 16 }, (_, index) => index + 1);
+    const aria2cFound = aria2c?.available === true;
 
     return el("section", { className: "panel" }, [
       el("h2", { className: "panel-title", text: "Speed" }),
@@ -210,7 +225,10 @@ export class SettingsPanel {
         ),
         el("p", {
           className: "hint",
-          text: "How many pieces of one download are fetched at the same time. It only helps media a site delivers in pieces; a single-file stream still uses one connection.",
+          text:
+            settings.useAria2c && aria2cFound
+              ? "How many pieces of one download are fetched at the same time. Media a site delivers in pieces is fetched this way by yt-dlp, and a single-file stream by aria2c."
+              : "How many pieces of one download are fetched at the same time. It only helps media a site delivers in pieces; a single-file stream still uses one connection unless aria2c is switched on below.",
         }),
         settings.connections > 4
           ? el("p", {
@@ -226,10 +244,64 @@ export class SettingsPanel {
         ),
         el("p", {
           className: "hint",
-          text: "Asks for a single-file stream in 10 MB pieces, which gets past some sites that slow a long transfer down. Turn it off if a site misbehaves.",
+          text: "Asks for a single-file stream in 10 MB pieces, which gets past some sites that slow a long transfer down. It makes other sites slower, so switch it on only where it helps.",
         }),
       ]),
+
+      this.aria2cField(settings, aria2cFound, aria2c?.version ?? ""),
     ]);
+  }
+
+  /**
+   * aria2cField is the switch that hands single-file streams to aria2c.
+   *
+   * It can only be switched on once aria2c is found, and the offer to download
+   * it sits beside it until then. A switch that is already on stays usable when
+   * aria2c goes missing, so it can always be switched off again.
+   */
+  private aria2cField(settings: Settings, found: boolean, version: string): HTMLElement {
+    const children: (HTMLElement | false)[] = [
+      this.checkbox(
+        "Use aria2c for single-file streams",
+        settings.useAria2c,
+        (checked) => this.save(settings, { useAria2c: checked }),
+        !found && !settings.useAria2c,
+      ),
+    ];
+
+    if (found) {
+      children.push(
+        el("p", {
+          className: "hint",
+          text: `Fetches a single-file stream over as many connections as set above, using aria2c ${version}. It takes over from chunked transfer for those streams, and its progress updates once a second.`,
+        }),
+        settings.useAria2c &&
+          settings.connections < 2 &&
+          el("p", {
+            className: "hint warning",
+            text: "With one connection aria2c has nothing to add, so it is not used. Raise the connections to use it.",
+          }),
+      );
+    } else {
+      children.push(
+        el("p", {
+          className: settings.useAria2c ? "hint warning" : "hint",
+          text: settings.useAria2c
+            ? "aria2c was not found, so downloads run without it until it is installed."
+            : "aria2c is a separate, optional program that is not installed. It fetches a single-file stream over several connections, which yt-dlp cannot do itself.",
+        }),
+        el("div", { className: "download-actions" }, [
+          el("button", {
+            className: "button subtle small",
+            text: "Download aria2c",
+            title: "Downloads aria2c from its official release and verifies it against the checksum built into GrabOne",
+            attrs: { type: "button" },
+            on: { click: () => this.handlers.onInstallTool("aria2c") },
+          }),
+        ]),
+      );
+    }
+    return el("div", { className: "field" }, children);
   }
 
   private authenticationSection(settings: Settings): HTMLElement {
@@ -391,9 +463,14 @@ export class SettingsPanel {
     ]);
   }
 
-  private checkbox(label: string, checked: boolean, onToggle: (value: boolean) => void): HTMLElement {
+  private checkbox(
+    label: string,
+    checked: boolean,
+    onToggle: (value: boolean) => void,
+    disabled = false,
+  ): HTMLElement {
     const input = el("input", {
-      attrs: { type: "checkbox", checked: checked ? "" : null },
+      attrs: { type: "checkbox", checked: checked ? "" : null, disabled: disabled ? "" : null },
       on: { change: (event) => onToggle((event.currentTarget as HTMLInputElement).checked) },
     });
     return el("label", { className: "checkbox" }, [input, el("span", { text: label })]);

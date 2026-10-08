@@ -157,16 +157,24 @@ what ends up on disk, whatever the site published. WebM falls back to WebVTT
 because it carries nothing else, and a thumbnail is saved beside a WebM file
 rather than embedded, because WebM has no cover art.
 
-The speed settings add up to two switches, and change how fast the media is
-fetched without changing what is saved:
+The speed settings add switches that change how fast the media is fetched
+without changing what is saved:
 
 | Setting | Switch | Applies to |
 | --- | --- | --- |
 | Connections above 1 | `--concurrent-fragments <n>` | Streams delivered in fragments |
-| Chunked transfer | `--http-chunk-size 10M` | Single-file streams |
+| Chunked transfer | `--http-chunk-size 10M` | Single-file streams fetched by yt-dlp |
+| aria2c, with connections above 1 | `--downloader http,ftp:<path>` and `--downloader-args "aria2c:-x <n> -s <n> --human-readable=false"` | Single-file streams |
+
+All of them are passed together, and yt-dlp picks by stream. Naming the
+protocols keeps aria2c to single-file streams: a stream delivered in fragments
+stays with yt-dlp, which already fetches the fragments side by side and reports
+its own progress. For a stream aria2c takes, the chunk size is ignored. With one
+connection aria2c would do what yt-dlp does, so it is left out.
 
 They come from the settings when the download is built, so a job keeps the
-values it was started with.
+values it was started with. aria2c is an optional extra: when the switch is on
+and aria2c is not found, the download is built without it and the job says so.
 
 ### 6. Running and reporting
 
@@ -187,6 +195,23 @@ required because `--print` otherwise implies `--quiet`, which would silence
 progress entirely. `ProgressParser` is the only component that reads yt-dlp's
 output text; when a site reports no size it falls back to fragment counts, and
 when nothing is known it reports no percentage rather than inventing one.
+
+yt-dlp reports nothing while aria2c transfers a file: it starts aria2c, waits,
+and announces the file as finished. Progress for those streams is read from
+aria2c's own status line, which reaches the application because aria2c inherits
+yt-dlp's output:
+
+```text
+[#c7f6bb 1476815B/4360399B(33%) CN:4 DL:674502B ETA:4s]
+```
+
+Two things follow from the Windows build of aria2c always behaving as if it
+wrote to a terminal. It redraws that line once a second with carriage returns
+and never ends it with a line break, so the output is split at carriage returns
+as well as line breaks. And whatever yt-dlp prints next arrives stuck to the end
+of the last status line, which is the line saying the file is finished, so the
+parser reads what follows a status line in preference to the status line.
+`--human-readable=false` makes the line carry exact byte counts.
 
 Stages reported to the interface:
 
@@ -274,8 +299,9 @@ parsing, error classification, settings serialization and job lifecycle.
 
 ## Getting the tools
 
-GrabOne drives three programs it does not contain. Finding them, and offering to
-fetch them, are separate concerns:
+GrabOne drives three programs it does not contain, and a fourth, aria2c, that is
+optional and only used for speed. Finding them, and offering to fetch them, are
+separate concerns:
 
 ```text
 configured path  →  application folder  →  managed folder  →  PATH  →  install locations
@@ -292,11 +318,24 @@ that package manager and is never replaced.
 | --- | --- | --- |
 | yt-dlp | `yt-dlp/yt-dlp` releases | `SHA2-256SUMS` |
 | FFmpeg, FFprobe | `BtbN/FFmpeg-Builds` releases | `checksums.sha256` |
+| aria2c | `aria2/aria2` release 1.37.0, one named file | A SHA-256 carried in the source |
 
-Only a release that publishes checksums can be offered, because the download has
-to be provable. The FFmpeg archive is unpacked with `archive/zip`, taking only
-`ffmpeg.exe` and `ffprobe.exe` by base name, so an entry such as
-`../../evil.exe` cannot write outside the destination.
+A download has to be provable, and there are two ways to prove one. A release
+that publishes checksums says what its files should hash to, so the latest
+release can be followed. aria2 publishes none, so following its latest release
+would mean trusting the newest file blindly. It is pinned instead: one exact
+file is named and its SHA-256 is carried in `internal/tooling`, the same value
+winget records for that address. The pinned version moves only with a new
+version of GrabOne, after the new file has been checked, which is why a managed
+aria2c has no Update button. A tool that offers neither is not offered.
+
+Archives are unpacked with `archive/zip`, taking only the wanted executables by
+base name, so an entry such as `../../evil.exe` cannot write outside the
+destination.
+
+A missing aria2c is not drawn as a problem. It appears only in the detailed
+list in Settings, marked as optional, and one that was never installed carries
+no error.
 
 A successful download clears the configured path for the tools it supplies: a
 path set by hand would otherwise take priority and hide the copy just installed.

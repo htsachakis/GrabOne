@@ -1,7 +1,8 @@
 // Package tooling downloads the external programs GrabOne drives — yt-dlp,
-// FFmpeg and FFprobe — from their official releases, verifies them against the
-// checksums published with those releases, and keeps them in a folder the
-// application manages.
+// FFmpeg, FFprobe and aria2c — from their official releases, verifies them, and
+// keeps them in a folder the application manages. A download is verified
+// against the checksums published with its release, or, for a project that
+// publishes none, against a checksum carried here for one exact file.
 //
 // This is offered, never automatic: a tool is fetched only when the user asks
 // for it. Installing them with a package manager remains equally supported, and
@@ -43,13 +44,32 @@ type Source struct {
 
 	// Licence is shown so the user knows what they are downloading.
 	Licence string
+
+	// Pinned names the one file that is downloaded, in place of Asset and
+	// ChecksumAsset, for a project whose releases publish no checksums.
+	Pinned *PinnedAsset
+}
+
+// PinnedAsset is one exact published file and its SHA-256.
+//
+// Looking up the latest release is only safe when the release itself says what
+// its files should hash to. Without that, the newest file would have to be
+// trusted blindly, so the version is fixed here and moves only with a new
+// version of the application, after the new file has been checked.
+type PinnedAsset struct {
+	Version string
+	Name    string
+	URL     string
+	Size    int64
+	SHA256  string
 }
 
 // sources lists where each tool comes from.
 //
-// Both are GitHub releases that publish a checksum file, which is what makes an
-// automatic download verifiable. Anything without one would have to be trusted
-// blindly, and is not offered.
+// yt-dlp and FFmpeg are GitHub releases that publish a checksum file, which is
+// what makes an automatic download verifiable. aria2 publishes none, so it is
+// pinned to one file instead. Anything that could only be trusted blindly is
+// not offered.
 var sources = []Source{
 	{
 		Names:       []string{dependencies.YtDlp},
@@ -98,6 +118,24 @@ var sources = []Source{
 			return release.FindNamed("checksums.sha256")
 		},
 		Extract: extractFFmpeg,
+	},
+	{
+		Names:       []string{dependencies.Aria2c},
+		DisplayName: "aria2c",
+		Owner:       "aria2",
+		Repo:        "aria2",
+		ProjectURL:  "https://github.com/aria2/aria2",
+		Licence:     "GPL",
+		// The checksum is that of the file the project serves, and matches the
+		// one winget records for the same address.
+		Pinned: &PinnedAsset{
+			Version: "1.37.0",
+			Name:    "aria2-1.37.0-win-64bit-build1.zip",
+			URL:     "https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0-win-64bit-build1.zip",
+			Size:    2475379,
+			SHA256:  "67d015301eef0b612191212d564c5bb0a14b5b9c4796b76454276a4d28d9b288",
+		},
+		Extract: extractAria2c,
 	},
 }
 
@@ -183,31 +221,11 @@ func (i *Installer) Install(ctx context.Context, name string, onProgress func(Pr
 		})
 	}
 
-	report(StageLookingUp, "Looking up the latest "+source.DisplayName+" release", ghrelease.Progress{})
-
-	release, err := i.client.Latest(ctx, source.Owner, source.Repo)
-	if err != nil {
-		return nil, fmt.Errorf("find the latest %s release: %w", source.DisplayName, err)
-	}
-
-	asset := source.Asset(release)
-	if asset == nil {
-		return nil, fmt.Errorf("the latest %s release does not publish a Windows build", source.DisplayName)
-	}
-	checksums := source.ChecksumAsset(release)
-	if checksums == nil {
-		return nil, fmt.Errorf("the latest %s release publishes no checksums, so it cannot be verified", source.DisplayName)
-	}
-
 	if err := os.MkdirAll(i.Directory, 0o755); err != nil {
 		return nil, fmt.Errorf("prepare the tools folder: %w", err)
 	}
 
-	report(StageDownloading, "Downloading "+asset.Name, ghrelease.Progress{TotalBytes: asset.Size})
-
-	downloaded, err := i.client.DownloadVerified(ctx, asset, checksums, i.Directory, func(progress ghrelease.Progress) {
-		report(StageDownloading, "Downloading "+asset.Name, progress)
-	})
+	downloaded, version, err := i.fetch(ctx, source, report)
 	if err != nil {
 		return nil, err
 	}
@@ -223,16 +241,58 @@ func (i *Installer) Install(ctx context.Context, name string, onProgress func(Pr
 
 	return &Result{
 		Tool:      name,
-		Version:   release.TagName,
+		Version:   version,
 		Installed: installed,
 		Directory: i.Directory,
 	}, nil
 }
 
+// fetch downloads and verifies the file a tool is published as, returning
+// where it was put and which version it is.
+func (i *Installer) fetch(
+	ctx context.Context,
+	source Source,
+	report func(Stage, string, ghrelease.Progress),
+) (string, string, error) {
+	if pinned := source.Pinned; pinned != nil {
+		asset := &ghrelease.Asset{Name: pinned.Name, URL: pinned.URL, Size: pinned.Size}
+
+		report(StageDownloading, "Downloading "+asset.Name, ghrelease.Progress{TotalBytes: asset.Size})
+
+		downloaded, err := i.client.DownloadPinned(ctx, asset, pinned.SHA256, i.Directory, func(progress ghrelease.Progress) {
+			report(StageDownloading, "Downloading "+asset.Name, progress)
+		})
+		return downloaded, pinned.Version, err
+	}
+
+	report(StageLookingUp, "Looking up the latest "+source.DisplayName+" release", ghrelease.Progress{})
+
+	release, err := i.client.Latest(ctx, source.Owner, source.Repo)
+	if err != nil {
+		return "", "", fmt.Errorf("find the latest %s release: %w", source.DisplayName, err)
+	}
+
+	asset := source.Asset(release)
+	if asset == nil {
+		return "", "", fmt.Errorf("the latest %s release does not publish a Windows build", source.DisplayName)
+	}
+	checksums := source.ChecksumAsset(release)
+	if checksums == nil {
+		return "", "", fmt.Errorf("the latest %s release publishes no checksums, so it cannot be verified", source.DisplayName)
+	}
+
+	report(StageDownloading, "Downloading "+asset.Name, ghrelease.Progress{TotalBytes: asset.Size})
+
+	downloaded, err := i.client.DownloadVerified(ctx, asset, checksums, i.Directory, func(progress ghrelease.Progress) {
+		report(StageDownloading, "Downloading "+asset.Name, progress)
+	})
+	return downloaded, release.TagName, err
+}
+
 // Installed reports which managed executables are present.
 func (i *Installer) Installed() map[string]string {
 	found := map[string]string{}
-	for _, name := range []string{dependencies.YtDlp, dependencies.FFmpeg, dependencies.FFprobe} {
+	for _, name := range []string{dependencies.YtDlp, dependencies.FFmpeg, dependencies.FFprobe, dependencies.Aria2c} {
 		path := filepath.Join(i.Directory, executableName(name))
 		if info, err := os.Stat(path); err == nil && !info.IsDir() {
 			found[name] = path

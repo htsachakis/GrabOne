@@ -24,6 +24,7 @@ type Paths struct {
 	YtDlp   string
 	FFmpeg  string
 	FFprobe string
+	Aria2c  string
 }
 
 // Detector probes the external executables.
@@ -42,12 +43,13 @@ func NewDetector(applicationDir, managedDir string) *Detector {
 	return &Detector{ApplicationDir: applicationDir, ManagedDir: managedDir}
 }
 
-// Detect probes all three executables.
+// Detect probes every executable.
 func (d *Detector) Detect(ctx context.Context, paths Paths) Set {
 	return Set{
 		YtDlp:   d.DetectOne(ctx, YtDlp, paths.YtDlp),
 		FFmpeg:  d.DetectOne(ctx, FFmpeg, paths.FFmpeg),
 		FFprobe: d.DetectOne(ctx, FFprobe, paths.FFprobe),
+		Aria2c:  d.DetectOne(ctx, Aria2c, paths.Aria2c),
 	}
 }
 
@@ -63,7 +65,12 @@ func (d *Detector) DetectOne(ctx context.Context, name, configuredPath string) D
 	path, source, err := d.resolve(name, configuredPath)
 	if err != nil {
 		status.Source = SourceNotFound
-		status.Error = err.Error()
+		// An optional extra that was never installed is a fact about the
+		// machine, not a fault to report. One the user pointed at and that is
+		// not there is still worth saying.
+		if name != Aria2c || strings.TrimSpace(configuredPath) != "" {
+			status.Error = err.Error()
+		}
 		return status
 	}
 	status.Path = path
@@ -142,7 +149,7 @@ func probeVersion(ctx context.Context, name, path string) (string, error) {
 
 	var args []string
 	switch name {
-	case YtDlp:
+	case YtDlp, Aria2c:
 		args = []string{"--version"}
 	default:
 		args = []string{"-version"}
@@ -159,7 +166,18 @@ func probeVersion(ctx context.Context, name, path string) (string, error) {
 	switch name {
 	case YtDlp:
 		return ytdlp.ParseVersion(text), nil
+	case Aria2c:
+		return parseAria2cVersion(text), nil
 	default:
 		return ffmpeg.ParseVersion(text), nil
 	}
+}
+
+// parseAria2cVersion extracts the version from "aria2c --version" output, which
+// opens with "aria2 version 1.37.0". Anything unexpected is returned as-is
+// rather than discarded.
+func parseAria2cVersion(output string) string {
+	first, _, _ := strings.Cut(strings.TrimSpace(output), "\n")
+	first = strings.TrimSpace(first)
+	return strings.TrimPrefix(first, "aria2 version ")
 }

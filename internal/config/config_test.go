@@ -232,8 +232,15 @@ func TestSpeedSettingsStartSafe(t *testing.T) {
 	if cfg.Connections != 1 {
 		t.Errorf("connections = %d, want 1", cfg.Connections)
 	}
-	if !cfg.ChunkedTransfer {
-		t.Error("chunked transfer should be on for a fresh installation")
+	// Chunked transfer helps on a site that slows a long request down and
+	// costs speed on one that does not, so it is something to switch on for a
+	// site that needs it.
+	if cfg.ChunkedTransfer {
+		t.Error("chunked transfer should be off for a fresh installation")
+	}
+	// aria2c is a separate program the user has to want.
+	if cfg.UseAria2c {
+		t.Error("aria2c should be off for a fresh installation")
 	}
 }
 
@@ -273,16 +280,16 @@ func TestOlderSettingsFileGetsTheSpeedDefaults(t *testing.T) {
 	if cfg.Connections != 1 {
 		t.Errorf("connections = %d, want the default for a missing key", cfg.Connections)
 	}
-	if !cfg.ChunkedTransfer {
-		t.Error("chunked transfer should take its default when the key is missing")
+	if cfg.ChunkedTransfer {
+		t.Error("chunked transfer should stay off when the key is missing")
 	}
 }
 
-func TestChunkedTransferCanBeSwitchedOff(t *testing.T) {
+func TestSpeedSettingsSurviveAReload(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 
 	cfg := Default()
-	cfg.ChunkedTransfer = false
+	cfg.ChunkedTransfer = true
 	cfg.Connections = 6
 	if err := Save(path, cfg); err != nil {
 		t.Fatalf("save: %v", err)
@@ -292,9 +299,8 @@ func TestChunkedTransferCanBeSwitchedOff(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
-	// Off is a choice, not a missing value: loading must not turn it back on.
-	if reloaded.ChunkedTransfer {
-		t.Error("chunked transfer came back on after it was switched off")
+	if !reloaded.ChunkedTransfer {
+		t.Error("chunked transfer went back off after it was switched on")
 	}
 	if reloaded.Connections != 6 {
 		t.Errorf("connections = %d, want the stored 6", reloaded.Connections)

@@ -103,6 +103,9 @@ type View struct {
 	// PlainRetry reports that the first attempt failed and the job was tried
 	// again with every speed setting dropped.
 	PlainRetry bool `json:"plainRetry"`
+	// Aria2cMissing reports that the job was meant to use aria2c, which was not
+	// found, and runs with yt-dlp alone.
+	Aria2cMissing bool `json:"aria2cMissing"`
 }
 
 // Finished reports whether the job has reached a terminal state.

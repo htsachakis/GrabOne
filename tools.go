@@ -39,6 +39,10 @@ type ToolSource struct {
 	// Provides lists the dependencies one download supplies, since an FFmpeg
 	// build carries FFprobe as well.
 	Provides []string `json:"provides"`
+	// PinnedVersion is set for a tool that is downloaded as one fixed version
+	// and so has nothing newer to update to. It is empty for a tool that
+	// follows its latest release.
+	PinnedVersion string `json:"pinnedVersion"`
 }
 
 // toolInstalls guards against two downloads of the same tool at once.
@@ -74,19 +78,24 @@ func (a *App) GetToolSources() []ToolSource {
 
 	out := make([]ToolSource, 0, len(sources))
 	for _, source := range sources {
-		out = append(out, ToolSource{
+		entry := ToolSource{
 			Name:        source.Names[0],
 			DisplayName: source.DisplayName,
 			ProjectURL:  source.ProjectURL,
 			Licence:     source.Licence,
 			Provides:    source.Names,
-		})
+		}
+		if source.Pinned != nil {
+			entry.PinnedVersion = source.Pinned.Version
+		}
+		out = append(out, entry)
 	}
 	return out
 }
 
 // InstallTool downloads a dependency from its official release, verifies it
-// against the published checksum and puts it in the folder GrabOne manages.
+// against the published checksum, or against the checksum GrabOne carries for a
+// pinned tool, and puts it in the folder GrabOne manages.
 //
 // Nothing here runs on its own: this is called because the user asked for it.
 func (a *App) InstallTool(name string) ToolInstallResponse {
@@ -167,6 +176,8 @@ func (a *App) clearConfiguredPaths(name string) {
 				cfg.FFmpegPath = ""
 			case dependencies.FFprobe:
 				cfg.FFprobePath = ""
+			case dependencies.Aria2c:
+				cfg.Aria2cPath = ""
 			}
 		}
 	}); err != nil {
