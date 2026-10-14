@@ -65,3 +65,14 @@ func TestRunStopsAStalledProcessTreeWhenCancelled(t *testing.T) {
 		t.Fatal("Run did not return after its context was cancelled")
 	}
 }
+
+// yt-dlp must not run in GrabOne's own folder: an installed copy lives under
+// Program Files, which the user cannot write to, and there yt-dlp can spin
+// forever instead of finishing an analysis.
+func TestCommandRunsInTheTemporaryFolder(t *testing.T) {
+	cmd := NewClient("yt-dlp.exe", "", nil).Command(context.Background(), "--version")
+
+	if cmd.Dir != os.TempDir() {
+		t.Errorf("yt-dlp runs in %q, want the temporary folder %q", cmd.Dir, os.TempDir())
+	}
+}

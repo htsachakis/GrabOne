@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -77,9 +78,16 @@ const waitDelay = 5 * time.Second
 // launcher that runs the real program as a child, and yt-dlp itself starts
 // FFmpeg. A child left running keeps the output pipes open, so without this a
 // cancelled or timed out run would never return.
+//
+// yt-dlp runs in the temporary folder rather than wherever GrabOne was started.
+// An installed GrabOne starts in its own folder under Program Files, which the
+// user cannot write to, and there yt-dlp never gets past testing a TikTok
+// format: it spins without end. Downloads name their folder with --paths, so
+// nothing is saved relative to this one.
 func (c *Client) Command(ctx context.Context, args ...string) *exec.Cmd {
 	full := append(c.BaseArgs(), args...)
 	cmd := exec.CommandContext(ctx, c.binaryPath, full...)
+	cmd.Dir = os.TempDir()
 	procutil.Configure(cmd)
 	cmd.Cancel = func() error { return procutil.KillTree(cmd) }
 	cmd.WaitDelay = waitDelay
