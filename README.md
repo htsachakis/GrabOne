@@ -45,6 +45,9 @@ and gains new sites whenever yt-dlp is updated.
   and cancelled, which also stops any FFmpeg process they started. A waiting
   download can be moved up, down or to the front of the queue; a running one is
   never interrupted by a move.
+- **A tidy download folder.** Partial files, streams waiting to be merged and
+  other work in progress stay in a hidden `.grabone-partial` folder, so only
+  finished files appear where you save.
 - **Speed settings.** For sites that slow each connection down: fetch up to 16
   pieces of one download at once, ask for single-file streams in chunks, or hand
   them to aria2c to fetch over several connections. A download that fails with

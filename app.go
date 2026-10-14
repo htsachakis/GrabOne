@@ -18,6 +18,7 @@ import (
 	"grabone/internal/ffmpeg"
 	"grabone/internal/logging"
 	"grabone/internal/media"
+	"grabone/internal/partial"
 	"grabone/internal/system"
 	"grabone/internal/updater"
 	"grabone/internal/ytdlp"
@@ -130,6 +131,9 @@ func (a *App) startup(ctx context.Context) {
 
 	a.refreshDependencies(ctx)
 	a.ensureOutputDirectory(settings.OutputDirectory)
+	for _, removed := range partial.CleanStale(settings.OutputDirectory, time.Now()) {
+		a.logger.Info("removed partial files left by an unfinished download", "path", removed)
+	}
 	updater.ClearDownloads(updateDirectory())
 	a.startUpdateCheck(ctx)
 }

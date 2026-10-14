@@ -58,6 +58,18 @@ func ReportingArgs() []string {
 	)
 }
 
+// PartialArgs sends everything yt-dlp writes on the way to the finished files
+// — partial downloads, streams waiting to be merged, a thumbnail or subtitles
+// waiting to be embedded — to the download's own folder. yt-dlp moves the
+// finished files into the output folder at the end. Like ReportingArgs, this
+// is plumbing and stays out of the command preview.
+func PartialArgs(options DownloadOptions) []string {
+	if options.PartialDirectory == "" {
+		return nil
+	}
+	return []string{"--paths", "temp:" + options.PartialDirectory}
+}
+
 // BuildDownloadArgs turns validated options into a yt-dlp argument list.
 //
 // Format identifiers are never hardcoded: every identifier comes from the

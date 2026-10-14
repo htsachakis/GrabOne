@@ -9,6 +9,7 @@ import (
 
 	"grabone/internal/ffmpeg"
 	"grabone/internal/logging"
+	"grabone/internal/partial"
 	"grabone/internal/ytdlp"
 )
 
@@ -171,6 +172,17 @@ func (m *Manager) run(job *Job, client *ytdlp.Client, prober *ffmpeg.Prober) {
 	}
 
 	options := job.Options()
+	options.PartialDirectory = m.preparePartial(job, options.OutputDirectory)
+	if options.PartialDirectory != "" {
+		// Whatever is left there once the job is over, finished or not, is of
+		// no use: the finished files have already been moved out.
+		defer func() {
+			if err := partial.Release(options.PartialDirectory); err != nil {
+				m.logger.Info("could not remove the partial files", "id", job.ID(), "error", err)
+			}
+		}()
+	}
+
 	result, failure := client.Download(ctx, options, onProgress)
 
 	if earnsPlainRetry(options, failure) {
@@ -193,6 +205,19 @@ func (m *Manager) run(job *Job, client *ytdlp.Client, prober *ffmpeg.Prober) {
 
 	m.emit(EventProgress, job.View().Progress)
 	m.emitState(job)
+}
+
+// preparePartial makes the folder for a job's in-progress files. A download
+// folder that will not take it, such as a read-only share, is no reason to fail
+// the download: the files then go where they always used to, beside the
+// finished ones.
+func (m *Manager) preparePartial(job *Job, outputDirectory string) string {
+	directory, err := partial.Prepare(outputDirectory, job.ID())
+	if err != nil {
+		m.logger.Info("keeping partial files in the download folder", "id", job.ID(), "error", err)
+		return ""
+	}
+	return directory
 }
 
 // earnsPlainRetry reports whether a failed attempt is worth a plain retry. There

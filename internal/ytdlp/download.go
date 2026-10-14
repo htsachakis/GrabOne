@@ -39,7 +39,8 @@ func (c *Client) Download(ctx context.Context, options DownloadOptions, onProgre
 	if err != nil {
 		return nil, &Error{Kind: KindInvalidURL, Message: err.Error()}
 	}
-	args := append(ReportingArgs(), downloadArgs...)
+	args := append(ReportingArgs(), PartialArgs(options)...)
+	args = append(args, downloadArgs...)
 
 	cmd := c.Command(ctx, args...)
 

@@ -3,6 +3,7 @@ package downloads
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -47,9 +48,15 @@ func standIn(behaviour string, args []string) int {
 	}
 
 	withSpeed := false
-	for _, arg := range args {
+	for index, arg := range args {
 		if arg == "--concurrent-fragments" || arg == "--http-chunk-size" {
 			withSpeed = true
+		}
+		// Like yt-dlp, leave a partial file where in-progress files were asked
+		// to go.
+		if arg == "--paths" && index+1 < len(args) && strings.HasPrefix(args[index+1], "temp:") {
+			directory := strings.TrimPrefix(args[index+1], "temp:")
+			_ = os.WriteFile(filepath.Join(directory, "Clip.f137.mp4.part"), []byte("partial"), 0o644)
 		}
 	}
 
@@ -96,6 +103,10 @@ func runWithStandIn(t *testing.T, behaviour string, options ytdlp.DownloadOption
 	t.Helper()
 
 	logPath := t.TempDir() + string(os.PathSeparator) + "attempts.log"
+	if options.OutputDirectory == testOptions().OutputDirectory {
+		// A real folder, since in-progress files are given one inside it.
+		options.OutputDirectory = t.TempDir()
+	}
 	t.Setenv(standInBehaviour, behaviour)
 	t.Setenv(standInLog, logPath)
 

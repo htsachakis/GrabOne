@@ -221,6 +221,11 @@ type DownloadOptions struct {
 	OutputDirectory  string `json:"outputDirectory"`
 	FilenameTemplate string `json:"filenameTemplate"`
 
+	// PartialDirectory is where yt-dlp keeps everything it writes on the way
+	// to the finished files, so the output folder only ever sees those. Empty
+	// means the output folder itself.
+	PartialDirectory string `json:"partialDirectory,omitempty"`
+
 	// CollectionMode and PlaylistItems control multi-item URLs.
 	CollectionMode string `json:"collectionMode"`
 	PlaylistItems  string `json:"playlistItems"`

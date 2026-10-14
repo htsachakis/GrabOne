@@ -189,6 +189,19 @@ from the command shown in the interface:
 --no-simulate
 ```
 
+It also sends everything written on the way to the finished files to the job's
+own folder with `--paths "temp:<folder>"`: partial downloads, streams waiting to
+be merged, and a thumbnail or subtitles waiting to be embedded. Written to the
+download folder, those appear and vanish for the whole download. The folder is
+`<download folder>\.grabone-partial\<job id>`, hidden, and on the same drive so
+yt-dlp's final move is a rename. `internal/partial` makes it when the job starts
+and removes it when the job ends, finished, failed or cancelled, along with the
+hidden folder once no job uses it. At startup, job folders in which nothing has
+changed for a day are removed as left over from a forced close; a job running in
+another window is still being written to, so it is left alone. A download folder
+that will not take the hidden folder gets the old behaviour rather than a failed
+download.
+
 `%(progress)j` emits yt-dlp's own progress dictionary as JSON, so percentages,
 byte counts, speed and ETA are read rather than scraped. `--no-quiet` is
 required because `--print` otherwise implies `--quiet`, which would silence
