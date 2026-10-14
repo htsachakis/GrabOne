@@ -41,6 +41,9 @@ type DependencyStatus struct {
 	Required bool `json:"required"`
 	// Managed reports that GrabOne downloaded this copy and can update it.
 	Managed bool `json:"managed"`
+	// Update is how to update a copy installed outside GrabOne, when that can
+	// be worked out from where it is installed.
+	Update *UpdateCommand `json:"update,omitempty"`
 }
 
 // Set is the full dependency picture handed to the frontend.

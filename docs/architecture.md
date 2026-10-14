@@ -242,7 +242,13 @@ running jobs, then the queue, then finished jobs.
 
 Cancellation uses `context.WithCancel`, and `cmd.Cancel` kills the whole process
 tree — yt-dlp launches FFmpeg, and a cancelled download must not leave it
-running.
+running. `Client.Command` sets this up for every yt-dlp run, analysis included.
+The Windows `yt-dlp.exe` is a launcher that runs the real program as a child,
+and a child left behind holds the output pipes open, so killing only the
+launcher would leave the call waiting for as long as that child lives.
+
+Only one analysis runs at a time. Starting another, or the Cancel button beside
+Analyze, stops the one in progress, and its late answer is ignored.
 
 A job that fails with a speed setting active gets one plain retry: the same
 request with every speed setting dropped and `--no-continue`, so it starts from
@@ -311,6 +317,14 @@ The managed folder, `%LOCALAPPDATA%\GrabOne\tools`, holds copies GrabOne
 downloaded itself. Anything found there is marked as managed, which is what makes
 an Update button meaningful: a copy installed by winget or Chocolatey belongs to
 that package manager and is never replaced.
+
+For such a copy, `dependencies.UpdateCommandFor` works out the update command
+from where it is installed: the winget package named by its folder, Scoop,
+Chocolatey, pip, or `yt-dlp -U` for a standalone yt-dlp. Settings shows it with
+Copy and Run. Run opens a visible PowerShell window, passing the command with
+`-EncodedCommand` so no quoting can change it, and the tools are probed again
+when that window closes. The command always comes from the detection, never
+from the interface.
 
 `internal/tooling` describes where each tool is published:
 

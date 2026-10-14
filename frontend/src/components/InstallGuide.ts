@@ -46,7 +46,7 @@ export function installGuide(guidance: InstallGuidance, handlers: InstallGuideHa
 }
 
 /** copyButton copies a command to the clipboard and confirms it briefly. */
-function copyButton(command: string): HTMLElement {
+export function copyButton(command: string): HTMLElement {
   let timer = 0;
 
   const button = el("button", {

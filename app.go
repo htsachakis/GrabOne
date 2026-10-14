@@ -52,6 +52,50 @@ type App struct {
 
 	updates      updates
 	toolInstalls toolInstalls
+
+	// analysis is the analysis in progress, which Cancel stops.
+	analysis analysisRun
+}
+
+// analysisRun holds the way to stop the analysis in progress. Only one runs at
+// a time: starting another replaces it, since only the newest result is shown.
+type analysisRun struct {
+	mu     sync.Mutex
+	serial uint64
+	cancel context.CancelFunc
+}
+
+// begin starts a new analysis and stops the one before it.
+func (r *analysisRun) begin(parent context.Context, timeout time.Duration) (context.Context, func()) {
+	ctx, cancel := context.WithTimeout(parent, timeout)
+
+	r.mu.Lock()
+	if r.cancel != nil {
+		r.cancel()
+	}
+	r.serial++
+	serial := r.serial
+	r.cancel = cancel
+	r.mu.Unlock()
+
+	return ctx, func() {
+		cancel()
+		r.mu.Lock()
+		if r.serial == serial {
+			r.cancel = nil
+		}
+		r.mu.Unlock()
+	}
+}
+
+// stop cancels the analysis in progress, if there is one.
+func (r *analysisRun) stop() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.cancel != nil {
+		r.cancel()
+		r.cancel = nil
+	}
 }
 
 // firstDetectionTimeout bounds how long a caller waits for the initial probe.
@@ -329,8 +373,8 @@ func (a *App) AnalyzeURL(request AnalyzeRequest) AnalyzeResponse {
 		mode = ytdlp.CollectionModeSingle
 	}
 
-	ctx, cancel := context.WithTimeout(a.context(), analysisTimeout)
-	defer cancel()
+	ctx, finish := a.analysis.begin(a.context(), analysisTimeout)
+	defer finish()
 
 	a.logger.Info("analyzing url", "url", request.URL, "mode", mode)
 
@@ -339,6 +383,10 @@ func (a *App) AnalyzeURL(request AnalyzeRequest) AnalyzeResponse {
 		CollectionMode: mode,
 		Cookies:        cookieOptions(settings),
 	})
+	if failure != nil && failure.Kind == ytdlp.KindCancelled {
+		a.logger.Info("analysis cancelled", "url", request.URL)
+		return AnalyzeResponse{Error: failure, CanMerge: set.CanMerge(), CanConvertAudio: set.FFmpeg.Available}
+	}
 	if failure != nil && info == nil {
 		a.logger.Info("analysis failed", "url", request.URL, "kind", string(failure.Kind), "message", failure.Message)
 		return AnalyzeResponse{Error: failure, CanMerge: set.CanMerge(), CanConvertAudio: set.FFmpeg.Available}
@@ -365,6 +413,10 @@ func (a *App) AnalyzeURL(request AnalyzeRequest) AnalyzeResponse {
 	}
 	return response
 }
+
+// CancelAnalysis stops the analysis in progress. The pending AnalyzeURL call
+// then returns a cancelled error.
+func (a *App) CancelAnalysis() { a.analysis.stop() }
 
 // ResolveEntry analyzes one item of a collection so its formats can be chosen.
 func (a *App) ResolveEntry(entryURL string) AnalyzeResponse {

@@ -6,6 +6,10 @@ export function AnalyzeURL(arg1) {
   return window['go']['main']['App']['AnalyzeURL'](arg1);
 }
 
+export function CancelAnalysis() {
+  return window['go']['main']['App']['CancelAnalysis']();
+}
+
 export function CancelDownload(arg1) {
   return window['go']['main']['App']['CancelDownload'](arg1);
 }
@@ -112,6 +116,10 @@ export function RefreshDependencies() {
 
 export function ResolveEntry(arg1) {
   return window['go']['main']['App']['ResolveEntry'](arg1);
+}
+
+export function RunUpdateCommand(arg1) {
+  return window['go']['main']['App']['RunUpdateCommand'](arg1);
 }
 
 export function SaveSettings(arg1) {

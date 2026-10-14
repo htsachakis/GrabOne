@@ -6,8 +6,9 @@ import type {
   InstallGuidance,
   ToolProgress,
   ToolSource,
+  UpdateCommand,
 } from "../types";
-import { installGuide } from "./InstallGuide";
+import { copyButton, installGuide } from "./InstallGuide";
 
 /**
  * detected reports whether the backend has actually probed the executables. A
@@ -24,6 +25,7 @@ export interface DependencyStatusHandlers {
   onOpenURL: (url: string) => void;
   onInstallTool: (name: string) => void;
   onUpdateTool: (name: string) => void;
+  onRunUpdateCommand: (name: string) => void;
 }
 
 /**
@@ -141,7 +143,9 @@ export class DependencyStatus {
       this.summary.className = "hint warning";
       return;
     }
-    this.summary.textContent = "yt-dlp, FFmpeg and FFprobe are updated independently of GrabOne.";
+    this.summary.textContent = this.detailed
+      ? "yt-dlp, FFmpeg and FFprobe are updated independently of GrabOne. Sites change often, so keep yt-dlp current."
+      : "yt-dlp, FFmpeg and FFprobe are updated independently of GrabOne.";
     this.summary.className = "hint";
   }
 
@@ -183,6 +187,9 @@ export class DependencyStatus {
     }
     if (status.error) {
       meta.push(el("div", { className: "dependency-error", text: status.error }));
+    }
+    if (this.detailed && status.available && !status.managed && status.update) {
+      meta.push(this.updateCommand(status.name, status.update));
     }
     if (!status.available && !this.toolProgress[status.name]) {
       // A missing tool is only useful news if it comes with how to fix it.
@@ -241,6 +248,29 @@ export class DependencyStatus {
       el("div", { className: "dependency-main" }, [marker, ...details]),
       meta.length > 0 ? el("div", { className: "dependency-meta" }, meta) : false,
       el("div", { className: "dependency-actions" }, actions),
+    ]);
+  }
+
+  /**
+   * updateCommand shows how to update a tool installed outside GrabOne. It is
+   * not GrabOne's copy to replace, so the update goes through whatever
+   * installed it, in a window the user can watch.
+   */
+  private updateCommand(name: string, update: UpdateCommand): HTMLElement {
+    return el("div", { className: "dependency-update" }, [
+      el("div", { className: "dependency-update-title", text: `Update with ${update.via}` }),
+      el("div", { className: "install-command-row" }, [
+        el("code", { className: "install-command", text: update.command }),
+        copyButton(update.command),
+        el("button", {
+          className: "button subtle small",
+          text: "Run",
+          title: "Opens PowerShell and runs this command. GrabOne checks the tools again when you close that window.",
+          attrs: { type: "button" },
+          on: { click: () => this.handlers.onRunUpdateCommand(name) },
+        }),
+      ]),
+      update.detail ? el("p", { className: "hint", text: update.detail }) : false,
     ]);
   }
 

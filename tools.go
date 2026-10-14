@@ -2,17 +2,23 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
 	"grabone/internal/appinfo"
 	"grabone/internal/config"
 	"grabone/internal/dependencies"
+	"grabone/internal/system"
 	"grabone/internal/tooling"
 )
 
 // eventToolProgress reports the progress of a tool download.
 const eventToolProgress = "tool:progress"
+
+// eventDependencies carries a new dependency picture found without the
+// interface asking, such as after an update command finished.
+const eventDependencies = "dependencies:changed"
 
 // toolInstallTimeout bounds one tool download. FFmpeg is a large archive on a
 // slow connection, so this is generous.
@@ -157,6 +163,34 @@ func (a *App) UpdateTool(name string) ToolInstallResponse {
 		}
 	}
 	return a.InstallTool(name)
+}
+
+// RunUpdateCommand opens a PowerShell window running the update command for a
+// tool installed outside GrabOne. The command is the one the detection worked
+// out, never text from the interface. Once the window is closed the tools are
+// probed again, so the new version shows without pressing Retry.
+func (a *App) RunUpdateCommand(name string) error {
+	var update *dependencies.UpdateCommand
+	for _, status := range a.GetDependencies().All() {
+		if status.Name == name && status.Update != nil {
+			update = status.Update
+		}
+	}
+	if update == nil {
+		return fmt.Errorf("GrabOne does not know how to update %s", dependencies.DisplayName(name))
+	}
+
+	a.logger.Info("running update command", "tool", name, "command", update.Command)
+	cmd, err := system.RunInTerminal(update.Command)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		_ = cmd.Wait()
+		a.emit(eventDependencies, a.refreshDependencies(a.context()))
+	}()
+	return nil
 }
 
 // clearConfiguredPaths removes the manually set locations for the dependencies

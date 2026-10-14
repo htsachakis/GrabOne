@@ -151,6 +151,17 @@ export interface DependencyStatus {
   error?: string;
   required: boolean;
   managed: boolean;
+  /** How to update a copy installed outside GrabOne, when that is known. */
+  update?: UpdateCommand;
+}
+
+/** UpdateCommand is the command that updates a tool installed outside GrabOne. */
+export interface UpdateCommand {
+  /** A PowerShell command line. */
+  command: string;
+  /** What installed the tool, such as winget or Scoop. */
+  via: string;
+  detail?: string;
 }
 
 export interface DependencySet {

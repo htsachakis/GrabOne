@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"grabone/internal/config"
 	"grabone/internal/dependencies"
@@ -207,5 +209,35 @@ func TestToolSourcesSayWhichDownloadsArePinned(t *testing.T) {
 	}
 	if version, listed := pinned[dependencies.YtDlp]; !listed || version != "" {
 		t.Errorf("yt-dlp pinned version = %q (listed %v), want it listed and following the latest release", version, listed)
+	}
+}
+
+func TestCancelAnalysisStopsTheAnalysisInProgress(t *testing.T) {
+	var run analysisRun
+	ctx, finish := run.begin(context.Background(), time.Minute)
+	defer finish()
+
+	run.stop()
+
+	if ctx.Err() != context.Canceled {
+		t.Errorf("analysis context is %v after cancelling, want context.Canceled", ctx.Err())
+	}
+}
+
+func TestANewAnalysisReplacesTheOneInProgress(t *testing.T) {
+	var run analysisRun
+	first, finishFirst := run.begin(context.Background(), time.Minute)
+	second, finishSecond := run.begin(context.Background(), time.Minute)
+	defer finishSecond()
+
+	if first.Err() != context.Canceled {
+		t.Errorf("first analysis is %v once another started, want context.Canceled", first.Err())
+	}
+
+	// The replaced analysis finishing late must not forget the current one.
+	finishFirst()
+	run.stop()
+	if second.Err() != context.Canceled {
+		t.Errorf("second analysis is %v after cancelling, want context.Canceled", second.Err())
 	}
 }

@@ -85,6 +85,11 @@ func (d *Detector) DetectOne(ctx context.Context, name, configuredPath string) D
 
 	status.Available = true
 	status.Version = version
+	if !status.Managed {
+		if update, ok := UpdateCommandFor(name, path); ok {
+			status.Update = &update
+		}
+	}
 	return status
 }
 
@@ -157,6 +162,10 @@ func probeVersion(ctx context.Context, name, path string) (string, error) {
 
 	cmd := exec.CommandContext(ctx, path, args...)
 	procutil.Configure(cmd)
+	// A hung probe has to be stopped with everything it started, or a child
+	// holding the output open would keep this waiting past the timeout.
+	cmd.Cancel = func() error { return procutil.KillTree(cmd) }
+	cmd.WaitDelay = 2 * time.Second
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", &ProbeError{Name: name, Path: path, Output: strings.TrimSpace(string(output)), Err: err}

@@ -105,6 +105,22 @@ export namespace config {
 
 export namespace dependencies {
 	
+	export class UpdateCommand {
+	    command: string;
+	    via: string;
+	    detail?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new UpdateCommand(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.command = source["command"];
+	        this.via = source["via"];
+	        this.detail = source["detail"];
+	    }
+	}
 	export class DependencyStatus {
 	    name: string;
 	    displayName: string;
@@ -115,6 +131,7 @@ export namespace dependencies {
 	    error?: string;
 	    required: boolean;
 	    managed: boolean;
+	    update?: UpdateCommand;
 	
 	    static createFrom(source: any = {}) {
 	        return new DependencyStatus(source);
@@ -131,7 +148,26 @@ export namespace dependencies {
 	        this.error = source["error"];
 	        this.required = source["required"];
 	        this.managed = source["managed"];
+	        this.update = this.convertValues(source["update"], UpdateCommand);
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class InstallStep {
 	    title: string;

@@ -6,10 +6,8 @@ import (
 	"io"
 	"strings"
 	"sync"
-	"time"
 
 	"grabone/internal/logging"
-	"grabone/internal/procutil"
 )
 
 // maxLineSize bounds a single output line. yt-dlp can print long paths and long
@@ -44,10 +42,6 @@ func (c *Client) Download(ctx context.Context, options DownloadOptions, onProgre
 	args := append(ReportingArgs(), downloadArgs...)
 
 	cmd := c.Command(ctx, args...)
-	// exec kills only the process it started. yt-dlp launches FFmpeg for
-	// merging and conversion, so cancelling has to take down the whole tree.
-	cmd.Cancel = func() error { return procutil.KillTree(cmd) }
-	cmd.WaitDelay = 5 * time.Second
 
 	stdout, pipeErr := cmd.StdoutPipe()
 	if pipeErr != nil {

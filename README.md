@@ -140,8 +140,10 @@ new version of GrabOne, so a copy GrabOne downloaded has no Update button.
 
 A copy GrabOne downloaded gets an **Update** button in Settings, which re-fetches
 the latest release — useful because extraction usually breaks when yt-dlp falls
-behind. A tool you installed with winget, Chocolatey or Scoop is used as it is
-and never replaced: update it the way you installed it.
+behind. A tool you installed with winget, Chocolatey, Scoop or pip is used as it
+is and never replaced. Settings shows the command that updates it the way you
+installed it, with **Copy** and **Run**; Run opens PowerShell with that command,
+and GrabOne checks the tools again when you close the window.
 
 Each one is detected by running it, not by checking that a file exists, so a
 broken or blocked executable is reported as unavailable rather than failing

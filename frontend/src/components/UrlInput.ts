@@ -3,7 +3,8 @@ import type { AppState } from "../state";
 
 /**
  * UrlInput is the entry point of the application: a field for any media link
- * and the action that analyzes it.
+ * and the action that analyzes it. While an analysis runs it can be cancelled,
+ * since a site can keep yt-dlp waiting far longer than anyone wants to.
  *
  * No link is rejected on the basis of its domain. Anything that looks like an
  * HTTP address is handed to yt-dlp, which decides whether it can extract it.
@@ -14,8 +15,12 @@ export class UrlInput {
   private readonly input: HTMLInputElement;
   private readonly button: HTMLButtonElement;
   private readonly spinner: HTMLElement;
+  private readonly cancelButton: HTMLButtonElement;
 
-  constructor(private readonly onAnalyze: (url: string) => void) {
+  constructor(
+    private readonly onAnalyze: (url: string) => void,
+    private readonly onCancel: () => void,
+  ) {
     this.input = el("input", {
       className: "url-field",
       attrs: {
@@ -27,7 +32,9 @@ export class UrlInput {
       },
       on: {
         keydown: (event) => {
-          if ((event as KeyboardEvent).key === "Enter") this.submit();
+          const key = (event as KeyboardEvent).key;
+          if (key === "Enter") this.submit();
+          if (key === "Escape" && !this.cancelButton.hidden) this.onCancel();
         },
         input: () => this.syncButton(),
         paste: () => {
@@ -50,9 +57,18 @@ export class UrlInput {
       [this.spinner, el("span", { text: "Analyze" })],
     );
 
+    this.cancelButton = el("button", {
+      className: "button subtle",
+      text: "Cancel",
+      title: "Stop analyzing this link",
+      attrs: { type: "button" },
+      on: { click: () => this.onCancel() },
+    });
+    this.cancelButton.hidden = true;
+
     this.element = el("section", { className: "panel url-panel" }, [
       el("label", { className: "field-label", text: "Paste a media URL", attrs: { for: "url-field" } }),
-      el("div", { className: "url-row" }, [this.input, this.button]),
+      el("div", { className: "url-row" }, [this.input, this.button, this.cancelButton]),
       el("p", {
         className: "hint",
         text: "YouTube, Instagram, TikTok, Facebook, X, Vimeo and every other site yt-dlp supports.",
@@ -77,6 +93,7 @@ export class UrlInput {
     this.spinner.hidden = !analyzing;
     this.button.classList.toggle("busy", analyzing);
     this.input.readOnly = analyzing;
+    this.cancelButton.hidden = !analyzing;
 
     if (state.url !== this.input.value.trim()) {
       // Keep the field in step when the URL was set elsewhere, for example by

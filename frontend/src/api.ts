@@ -41,6 +41,9 @@ export const EVENT_UPDATE_PROGRESS = "update:progress";
 /** Event name for the progress of a tool download. */
 export const EVENT_TOOL_PROGRESS = "tool:progress";
 
+/** Event name for dependencies probed again without the interface asking. */
+export const EVENT_DEPENDENCIES = "dependencies:changed";
+
 export function getAppInfo(): Promise<AppInfo> {
   return App.GetAppInfo() as Promise<AppInfo>;
 }
@@ -87,6 +90,12 @@ export function getCookieBrowsers(): Promise<string[]> {
 
 export function analyzeURL(request: AnalyzeRequest): Promise<AnalyzeResponse> {
   return App.AnalyzeURL(request as never) as Promise<AnalyzeResponse>;
+}
+
+/** cancelAnalysis stops the analysis in progress; its pending call then
+ * resolves with a cancelled error. */
+export function cancelAnalysis(): Promise<void> {
+  return App.CancelAnalysis();
 }
 
 export function resolveEntry(url: string): Promise<AnalyzeResponse> {
@@ -144,6 +153,17 @@ export function installTool(name: string): Promise<ToolInstallResponse> {
 
 export function updateTool(name: string): Promise<ToolInstallResponse> {
   return App.UpdateTool(name) as Promise<ToolInstallResponse>;
+}
+
+/** runUpdateCommand opens a PowerShell window running a tool's update command. */
+export function runUpdateCommand(name: string): Promise<void> {
+  return App.RunUpdateCommand(name);
+}
+
+/** onDependenciesChanged delivers a dependency picture found without being
+ * asked for, such as after an update command finished. */
+export function onDependenciesChanged(handler: (dependencies: DependencySet) => void): void {
+  EventsOn(EVENT_DEPENDENCIES, (...args: unknown[]) => handler(args[0] as DependencySet));
 }
 
 /** onToolProgress reports how a tool download is going. */

@@ -20,6 +20,7 @@ export interface SettingsHandlers {
   onOpenURL: (url: string) => void;
   onInstallTool: (name: string) => void;
   onUpdateTool: (name: string) => void;
+  onRunUpdateCommand: (name: string) => void;
   onCheckUpdate: () => void;
   onDownloadUpdate: () => void;
   onInstallUpdate: () => void;
@@ -55,6 +56,7 @@ export class SettingsPanel {
         onOpenURL: handlers.onOpenURL,
         onInstallTool: handlers.onInstallTool,
         onUpdateTool: handlers.onUpdateTool,
+        onRunUpdateCommand: handlers.onRunUpdateCommand,
       },
       true,
     );

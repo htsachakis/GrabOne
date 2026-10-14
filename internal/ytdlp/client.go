@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 
 	"grabone/internal/logging"
 	"grabone/internal/procutil"
@@ -64,13 +65,24 @@ func (c *Client) BaseArgs() []string {
 	return args
 }
 
+// waitDelay bounds how long a stopped yt-dlp may keep its output open.
+const waitDelay = 5 * time.Second
+
 // Command builds a yt-dlp command with the base switches applied. Arguments are
 // always passed as an array: no shell is involved, so a URL or a title can
 // never be interpreted as a command.
+//
+// Cancelling ctx stops the whole process tree. exec on its own kills only the
+// process it started, and that is not enough: the Windows yt-dlp.exe is a
+// launcher that runs the real program as a child, and yt-dlp itself starts
+// FFmpeg. A child left running keeps the output pipes open, so without this a
+// cancelled or timed out run would never return.
 func (c *Client) Command(ctx context.Context, args ...string) *exec.Cmd {
 	full := append(c.BaseArgs(), args...)
 	cmd := exec.CommandContext(ctx, c.binaryPath, full...)
 	procutil.Configure(cmd)
+	cmd.Cancel = func() error { return procutil.KillTree(cmd) }
+	cmd.WaitDelay = waitDelay
 	return cmd
 }
 

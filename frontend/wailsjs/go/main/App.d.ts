@@ -7,6 +7,8 @@ import {config} from '../models';
 
 export function AnalyzeURL(arg1:main.AnalyzeRequest):Promise<main.AnalyzeResponse>;
 
+export function CancelAnalysis():Promise<void>;
+
 export function CancelDownload(arg1:string):Promise<void>;
 
 export function CheckForUpdate():Promise<main.UpdateStatus>;
@@ -60,6 +62,8 @@ export function PreviewCommand(arg1:main.DownloadRequest):Promise<main.PreviewRe
 export function RefreshDependencies():Promise<dependencies.Set>;
 
 export function ResolveEntry(arg1:string):Promise<main.AnalyzeResponse>;
+
+export function RunUpdateCommand(arg1:string):Promise<void>;
 
 export function SaveSettings(arg1:config.Config):Promise<main.SettingsResponse>;
 

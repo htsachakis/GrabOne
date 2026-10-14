@@ -62,19 +62,26 @@ export class Application {
   private updateStatus: UpdateStatus | null = null;
   private toolSources: ToolSource[] = [];
   private previewTimer = 0;
+  /** analysisSerial identifies the newest analysis, so a late answer from one
+   * that was cancelled or replaced is ignored. */
+  private analysisSerial = 0;
 
   constructor(host: HTMLElement) {
     this.root = host;
 
     this.versionBadge = el("span", { className: "brand-version" });
 
-    this.urlInput = new UrlInput((url) => void this.analyze(url));
+    this.urlInput = new UrlInput(
+      (url) => void this.analyze(url),
+      () => void this.cancelAnalysis(),
+    );
     this.dependencyPanel = new DependencyStatus({
       onLocate: (name) => void this.locateDependency(name),
       onRetry: () => void this.refreshDependencies(),
       onOpenURL: (url) => void api.openURL(url),
       onInstallTool: (name) => void this.installTool(name),
       onUpdateTool: (name) => void this.installTool(name),
+      onRunUpdateCommand: (name) => void this.runUpdateCommand(name),
     });
     this.mediaCard = new MediaInfoCard();
     this.formatSelector = new FormatSelector((patch) => this.changeSelection(patch));
@@ -162,6 +169,7 @@ export class Application {
       this.dependencyPanel.setToolProgress(progress);
       this.settingsPanel?.setToolProgress(progress);
     });
+    api.onDependenciesChanged((dependencies) => this.store.set({ dependencies }));
     api.onUpdateAvailable((status) => this.applyUpdateStatus(status));
     api.onUpdateProgress((progress) => this.updateBanner.setProgress(progress));
 
@@ -234,6 +242,7 @@ export class Application {
   // ---------------------------------------------------------------- analysis
 
   private async analyze(url: string): Promise<void> {
+    const serial = ++this.analysisSerial;
     this.store.set({
       url,
       phase: "analyzing",
@@ -243,8 +252,31 @@ export class Application {
       commandPreview: "",
     });
 
-    const response = await api.analyzeURL({ url, collectionMode: "single" });
+    let response: AnalyzeResponse;
+    try {
+      response = await api.analyzeURL({ url, collectionMode: "single" });
+    } catch (error) {
+      // A failed call must not leave the interface analyzing forever.
+      response = {
+        error: { kind: "unknown", message: "The link could not be analyzed.", details: String(error) },
+      } as AnalyzeResponse;
+    }
+
+    // A cancelled or replaced analysis still answers, and its answer is stale.
+    if (serial !== this.analysisSerial) return;
+    if (response.error?.kind === "cancelled") {
+      this.store.set({ phase: "idle", error: null });
+      return;
+    }
     this.applyAnalysis(response);
+  }
+
+  /** cancelAnalysis stops the analysis in progress and returns to the field. */
+  private async cancelAnalysis(): Promise<void> {
+    if (this.store.get().phase !== "analyzing") return;
+    this.analysisSerial++;
+    this.store.set({ phase: "idle", error: null });
+    await api.cancelAnalysis();
   }
 
   private applyAnalysis(response: AnalyzeResponse): void {
@@ -490,6 +522,16 @@ export class Application {
     }
   }
 
+  /** runUpdateCommand updates a tool installed outside GrabOne through what
+   * installed it. The new versions arrive by event once its window closes. */
+  private async runUpdateCommand(name: string): Promise<void> {
+    try {
+      await api.runUpdateCommand(name);
+    } catch (error) {
+      this.store.set({ notice: String(error) });
+    }
+  }
+
   // ---------------------------------------------------------------- updates
 
   private applyUpdateStatus(status: UpdateStatus | null): void {
@@ -595,6 +637,7 @@ export class Application {
             onOpenURL: (url) => void api.openURL(url),
             onInstallTool: (name) => void this.installTool(name),
             onUpdateTool: (name) => void this.installTool(name),
+            onRunUpdateCommand: (name) => void this.runUpdateCommand(name),
             onCheckUpdate: () => void this.checkForUpdate(),
             onDownloadUpdate: () => void this.downloadUpdate(),
             onInstallUpdate: () => void this.installUpdate(),
