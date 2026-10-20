@@ -312,8 +312,13 @@ func moveExecutable(downloaded, directory string) ([]string, error) {
 	return []string{target}, nil
 }
 
+// goos is the system the executables are chosen for. It is a variable so a
+// test can check the choice for Windows, which the application ships for, on
+// any machine.
+var goos = runtime.GOOS
+
 func executableName(name string) string {
-	if runtime.GOOS == "windows" {
+	if goos == "windows" {
 		return name + ".exe"
 	}
 	return name
