@@ -1,3 +1,4 @@
+import { readClipboardText } from "../api";
 import { el } from "../dom";
 import type { AppState } from "../state";
 
@@ -13,6 +14,7 @@ export class UrlInput {
   readonly element: HTMLElement;
 
   private readonly input: HTMLInputElement;
+  private readonly pasteButton: HTMLButtonElement;
   private readonly button: HTMLButtonElement;
   private readonly spinner: HTMLElement;
   private readonly cancelButton: HTMLButtonElement;
@@ -47,6 +49,14 @@ export class UrlInput {
     this.spinner = el("span", { className: "spinner", attrs: { "aria-hidden": "true" } });
     this.spinner.hidden = true;
 
+    this.pasteButton = el("button", {
+      className: "button",
+      text: "Paste",
+      title: "Paste the link from the clipboard",
+      attrs: { type: "button" },
+      on: { click: () => void this.paste() },
+    });
+
     this.button = el(
       "button",
       {
@@ -68,7 +78,7 @@ export class UrlInput {
 
     this.element = el("section", { className: "panel url-panel" }, [
       el("label", { className: "field-label", text: "Paste a media URL", attrs: { for: "url-field" } }),
-      el("div", { className: "url-row" }, [this.input, this.button, this.cancelButton]),
+      el("div", { className: "url-row" }, [this.input, this.pasteButton, this.button, this.cancelButton]),
       el("p", {
         className: "hint",
         text: "YouTube, Instagram, TikTok, Facebook, X, Vimeo and every other site yt-dlp supports.",
@@ -93,6 +103,7 @@ export class UrlInput {
     this.spinner.hidden = !analyzing;
     this.button.classList.toggle("busy", analyzing);
     this.input.readOnly = analyzing;
+    this.pasteButton.disabled = analyzing;
     this.cancelButton.hidden = !analyzing;
 
     if (state.url !== this.input.value.trim()) {
@@ -105,6 +116,16 @@ export class UrlInput {
 
   private syncButton(analyzing = false): void {
     this.button.disabled = analyzing || this.input.value.trim().length === 0;
+  }
+
+  /** paste fills the field with the clipboard text and leaves the choice to
+   * analyze it to the user. An empty or unreadable clipboard changes nothing. */
+  private async paste(): Promise<void> {
+    const text = await readClipboardText();
+    if (!text || this.input.readOnly) return;
+    this.input.value = text;
+    this.syncButton();
+    this.input.focus();
   }
 
   private submit(): void {

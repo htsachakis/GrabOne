@@ -6,7 +6,7 @@
  */
 
 import * as App from "../wailsjs/go/main/App";
-import { EventsOn } from "../wailsjs/runtime/runtime";
+import { ClipboardGetText, EventsOn } from "../wailsjs/runtime/runtime";
 
 import type {
   AnalyzeRequest,
@@ -82,6 +82,16 @@ export function getInstallGuidance(): Promise<InstallGuidance[]> {
 
 export function openURL(url: string): Promise<void> {
   return App.OpenURL(url);
+}
+
+/** readClipboardText returns the text on the clipboard, trimmed. A clipboard
+ * that is empty or cannot be read gives an empty string rather than an error. */
+export async function readClipboardText(): Promise<string> {
+  try {
+    return ((await ClipboardGetText()) ?? "").trim();
+  } catch {
+    return "";
+  }
 }
 
 export function getCookieBrowsers(): Promise<string[]> {
