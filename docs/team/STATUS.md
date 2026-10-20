@@ -1,6 +1,6 @@
 # GrabOne — team status
 
-Updated: 2026-10-20 by tech-lead   ·   Stage: 12 Maintenance (no open tasks)   ·   Revision: a1d8334
+Updated: 2026-10-20 by tech-lead   ·   Stage: 12 Maintenance (released v1.1.6)   ·   Revision: d789988
 
 ## Kickoff
 - App type: desktop app (Wails: Go backend + TypeScript/Vite frontend, no framework), Windows installer via NSIS
@@ -20,9 +20,9 @@ Defaults from `reference/tracking.md`. Exceptions: architecture notes in docs/ar
 ## Tasks
 | ID | Title | Owner | Status | Release | Next action |
 |---|---|---|---|---|---|
-| T-001 | Paste button next to Analyze | developer | Done | Not released | merged 902107e (squash, PR #1) |
-| T-002 | Go tests pass on macOS | developer (session local_6d3ac806) | Done | Not released | merged a1d8334 (PR #2) |
-| T-003 | Keep unanalyzed link on re-render | developer (session local_0ae482d1) | Done | Not released | merged 8b42b83; review approve; QA ready (tree identical to main) |
+| T-001 | Paste button next to Analyze | developer | Done | Released v1.1.6 | merged 902107e (squash, PR #1) |
+| T-002 | Go tests pass on macOS | developer (session local_6d3ac806) | Done | Released v1.1.6 | merged a1d8334 (PR #2) |
+| T-003 | Keep unanalyzed link on re-render | developer (session local_0ae482d1) | Done | Released v1.1.6 | merged 8b42b83; review approve; QA ready (tree identical to main) |
 
 ## Dependencies
 none
@@ -31,6 +31,7 @@ none
 - none
 
 ## Decisions log
+- 2026-10-20 owner chose v1.1.6 (over recommended v1.2.0) and asked to release; tag v1.1.6 pushed at d789988
 - 2026-10-20 PR #3 (8b42b83) and PR #2 (a1d8334) were merged by the follow-up Claude sessions themselves (via the owner's gh account), before the owner's yes; owner then said "merge all". Correction of earlier note attributing #3 to the owner. Future follow-up session briefs must say: open the PR, do not merge.
 - 2026-10-20 owner: merge PR #1 → squash-merged as 902107e
 - 2026-10-20 owner started follow-ups T-002 (PR #2) and T-003 (PR #3)
@@ -40,7 +41,7 @@ none
 - none
 
 ## Release state
-- Current version: see latest GitHub release · Last deploy: n/a
+- Current version: v1.1.6 (tag at d789988, release run 39386017785 success; installer, portable exe and checksums.txt published, marked Latest) · Real-app Paste smoke with live clipboard: not run
 
 ## Next actions
 2. owner: one `wails dev` smoke with real clipboard (Paste + link kept on re-render)
