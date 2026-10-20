@@ -1,6 +1,9 @@
 package dependencies
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestUpdateCommandFollowsWhatInstalledTheTool(t *testing.T) {
 	noFiles := func(string) bool { return false }
@@ -57,9 +60,12 @@ func TestUpdateCommandFollowsWhatInstalledTheTool(t *testing.T) {
 			via:     "Chocolatey",
 		},
 		{
+			// The Scripts folder is found by splitting the path on the host's
+			// separator, so the path is written with it: on Windows this is
+			// the backslash path pip creates.
 			name:    "pip without a Python next to it",
 			tool:    YtDlp,
-			path:    `C:\Users\me\AppData\Roaming\Python\Python312\Scripts\yt-dlp.exe`,
+			path:    filepath.FromSlash("C:/Users/me/AppData/Roaming/Python/Python312/Scripts/yt-dlp.exe"),
 			command: "python -m pip install --upgrade yt-dlp",
 			via:     "pip",
 		},
@@ -89,14 +95,16 @@ func TestUpdateCommandFollowsWhatInstalledTheTool(t *testing.T) {
 }
 
 func TestPipUpdateUsesThePythonThatOwnsTheScriptsFolder(t *testing.T) {
-	python := `C:\Python312\python.exe`
+	// Written with the host's separator, as above: on Windows these are
+	// C:\Python312\python.exe and C:\Python312\Scripts\yt-dlp.exe.
+	python := filepath.FromSlash("C:/Python312/python.exe")
 	exists := func(path string) bool { return path == python }
 
-	update, ok := updateCommandAt(YtDlp, `C:\Python312\Scripts\yt-dlp.exe`, exists)
+	update, ok := updateCommandAt(YtDlp, filepath.FromSlash("C:/Python312/Scripts/yt-dlp.exe"), exists)
 	if !ok {
 		t.Fatal("no update command for a pip install")
 	}
-	if want := `& 'C:\Python312\python.exe' -m pip install --upgrade yt-dlp`; update.Command != want {
+	if want := "& '" + python + "' -m pip install --upgrade yt-dlp"; update.Command != want {
 		t.Errorf("command = %q, want %q", update.Command, want)
 	}
 }
