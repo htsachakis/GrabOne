@@ -65,6 +65,12 @@ func ffmpegRelease() *ghrelease.Release {
 }
 
 func TestYtDlpAssetSelection(t *testing.T) {
+	// The application ships for Windows, so that is the choice checked, on
+	// whichever system runs the tests.
+	original := goos
+	goos = "windows"
+	t.Cleanup(func() { goos = original })
+
 	source, _ := SourceFor(dependencies.YtDlp)
 	release := ytDlpRelease()
 
