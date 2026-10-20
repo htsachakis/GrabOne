@@ -18,6 +18,8 @@ export class UrlInput {
   private readonly button: HTMLButtonElement;
   private readonly spinner: HTMLElement;
   private readonly cancelButton: HTMLButtonElement;
+  /** The state URL the field last followed. */
+  private shownUrl = "";
 
   constructor(
     private readonly onAnalyze: (url: string) => void,
@@ -106,9 +108,11 @@ export class UrlInput {
     this.pasteButton.disabled = analyzing;
     this.cancelButton.hidden = !analyzing;
 
-    if (state.url !== this.input.value.trim()) {
+    if (state.url !== this.shownUrl) {
       // Keep the field in step when the URL was set elsewhere, for example by
-      // starting another download of the same media.
+      // starting another download of the same media. Only a change of URL
+      // does this, so a link typed but not yet analyzed survives re-renders.
+      this.shownUrl = state.url;
       if (document.activeElement !== this.input) this.input.value = state.url;
     }
     this.syncButton(analyzing);
