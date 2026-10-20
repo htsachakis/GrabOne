@@ -16,6 +16,15 @@ func isolateSearch(t *testing.T) {
 	} {
 		t.Setenv(variable, t.TempDir())
 	}
+
+	// The fallback list still names fixed folders such as /opt/homebrew/bin,
+	// which no variable moves, so it is kept to an empty folder as well.
+	empty := t.TempDir()
+	original := searchedLocations
+	searchedLocations = func(name string) []string {
+		return []string{filepath.Join(empty, executableName(name))}
+	}
+	t.Cleanup(func() { searchedLocations = original })
 }
 
 func TestAbsentOptionalExtraIsNotAnError(t *testing.T) {

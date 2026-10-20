@@ -130,7 +130,7 @@ func (d *Detector) resolve(name, configuredPath string) (string, string, error) 
 	}
 
 	// Otherwise look where the common package managers install these tools.
-	for _, candidate := range commonLocations(name) {
+	for _, candidate := range searchedLocations(name) {
 		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
 			return candidate, SourceCommonLocation, nil
 		}
@@ -138,6 +138,11 @@ func (d *Detector) resolve(name, configuredPath string) (string, string, error) 
 
 	return "", "", &NotFoundError{Name: name}
 }
+
+// searchedLocations is the fallback list resolve walks. It is a variable so a
+// test can keep it off the fixed system folders, where a copy installed on the
+// machine running the tests would otherwise be found.
+var searchedLocations = commonLocations
 
 func executableName(name string) string {
 	if runtime.GOOS == "windows" {
